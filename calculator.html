@@ -1,0 +1,554 @@
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<link rel="preconnect" href="https://fonts.googleapis.com">
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+		<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@100;200;300;400;500;600;700&display=swap" rel="stylesheet">
+		<style>
+			.body { }
+			h1 {
+				width: 100%;
+				text-align: center;
+				font-size: 3.5em;
+			}
+			h3 {
+				width: 100%;
+				text-align: center;
+				font-size: 2.5em;
+			}
+			.ibmR {
+			  	font-family: "IBM Plex Sans KR", sans-serif;
+			  	font-weight: 400;
+			  	font-style: normal;
+				font-size: 1.5em;
+				padding:0.5em;
+			}
+			.ibmB {
+				font-family: "IBM Plex Sans KR", sans-serif;
+				font-weight: 700;
+			}
+			.addEx {
+				color: #dddddd;
+				text-align: right;
+				font-size: 1em;
+			}
+			.tblPrice {
+				width : 100%;
+				text-align: center;
+			}
+			.tblPrice thead > tr > th {
+				border: solid 1px #cccccc;
+				color : #555555;
+			}
+			.tblPrice tbody > tr > td {
+				border: solid 1px #cccccc;
+				color : #555555;
+			}
+			.tblPriceInput {
+				width : 100%;
+				margin: 20px 0 0 0 ;
+				text-align: center;
+			}
+			.tblPriceOutput {
+				width : 100%;
+				margin: 20px 0 0 0 ;
+				text-align: center;
+			}
+			.tblPriceOutput tr {
+				border: solid 1px #cccccc;
+			}
+			.tblPriceOutput td { 
+				background-color: #f6f6f6;
+				border: solid 1px #cccccc;
+				
+			}
+			.tblPriceOutput th { 
+				width:30%;
+				background-color: #FFCC00;
+				color: #555555;
+				border: solid 1px #cccccc;
+			}
+			.tblPriceInput tr {
+				border: solid 1px #cccccc;
+			}
+			.tblPriceInput td { 
+				background-color: #f6f6f6;
+				border: solid 1px #cccccc;
+				
+			}
+			.tblPriceInput th { 
+				background-color: #eeeeee;
+				color: #555555;
+				border: solid 1px #cccccc;
+			}
+			table, th, td {
+			 	border-collapse: collapse;
+			  	padding: 5px;
+			}
+			.tblPriceThType {
+			 	color:#ffffff;
+			}
+			.tblPriceThExp {
+				font-size: 0.8em;
+				font-style: italic;
+				color: #777777;
+				text-align: center;
+			}
+			.tblRoomExp {
+				font-size: 0.7em;
+				color: #777777;
+				text-align: center;
+			}
+		</style>
+		<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+		<script>
+			  $(document).ready(function() {
+				var calculator = (function() {
+
+					var roomType = $("#roomType");
+					var catCount = $("#catCount");
+					
+					var inTimeHour = $("#inTimeHour");
+					var outTimeHour = $("#outTimeHour");
+					
+					var inTimeYear = $("#inTimeYear");
+					var inTimeMonth = $("#inTimeMonth");
+					var inTimeDay = $("#inTimeDay");
+					var outTimeYear = $("#outTimeYear");
+					var outTimeMonth = $("#outTimeMonth");
+					var outTimeDay = $("#outTimeDay");
+					
+					var roomPrice = $("#roomPrice");
+					var useDays = $("#useDays");
+					var price = $("#price");
+					var discountRate = $("#discountRate");
+					var discountPrice = $("#discountPrice");
+					var totalPrice = $("#totalPrice");
+					
+
+				    var init = function() {
+				
+				 		var tdate = new Date();
+						var yyyy = tdate.getFullYear();
+						var mm = tdate.getMonth() + 1; 
+						var dd = tdate.getDate() + 1;					
+						for(var i = 10; i <=20; i++){
+						
+							inTimeEx = (i >= 18) ? " (늦은입실)" : "";
+							outTimeEx = (i <= 12) ? " (빠른퇴실)" : "";
+							
+							inTimeHour.append("<option value=\"" + i + "\">" + i + "시" + inTimeEx + "</option>");
+							outTimeHour.append("<option value=\"" + i + "\">" + i + "시" + outTimeEx + "</option>");
+						};
+						outTimeHour.val("20").trigger('change');
+						
+						for(var i = 1; i <=12; i++){
+							inTimeMonth.append("<option value=\"" + i + "\">" + i + "</option>");
+							outTimeMonth.append("<option value=\"" + i + "\">" + i + "</option>");
+						};
+						
+						
+						inTimeMonth.val(mm);
+						outTimeMonth.val(mm);
+				
+						for(var i = yyyy; i <= yyyy+ 2; i++){
+							inTimeYear.append("<option value=\"" + i + "\">" + i + "</option>");
+							outTimeYear.append("<option value=\"" + i + "\">" + i + "</option>");
+						};
+						
+
+						inTimeDayInit(yyyy, mm);
+						outTimeDayInit(yyyy, mm);
+						
+						inTimeDay.val(dd);
+						outTimeDay.val(dd);
+						
+						inTimeYear.change(function(){
+							inTimeDayInit(inTimeYear.val(), inTimeMonth.val());
+							if(!dateCheck()){alert(msgOverDate)};
+							calculate();
+							
+						});
+						
+						outTimeYear.change(function(){
+							outTimeDayInit(outTimeYear.val(), outTimeMonth.val());
+							if(!dateCheck()){alert(msgOverDate)};
+							calculate();
+						});
+							
+						
+						inTimeMonth.change(function(){
+							inTimeDayInit(inTimeYear.val(), inTimeMonth.val());
+							if(!dateCheck()){dateAdjust()};
+							calculate();
+						});
+						
+						outTimeMonth.change(function(){
+							outTimeDayInit(outTimeYear.val(), outTimeMonth.val());
+							if(!dateCheck()){dateAdjust()};
+							calculate();
+						});
+						
+						inTimeDay.change(function(){
+							if(!dateCheck()){dateAdjust()};
+							calculate();
+						});
+						
+						outTimeDay.change(function(){
+							if(!dateCheck()){dateAdjust()};
+							calculate();
+							
+						});
+						
+						outTimeDay.change(function(){
+							if(!dateCheck()){dateAdjust()};
+							calculate();
+						});
+						
+						inTimeHour.change(function(){
+							calculate();
+						});
+						
+						outTimeHour.change(function(){
+							calculate();
+						});
+						
+						roomType.change(function(){
+							calculate();
+						});
+						
+						catCount.change(function(){
+							calculate();
+						});
+						
+						function calculate(){
+						
+							// 객실단가
+							var standardPrice = 25000;
+							var addCountPrice = 5000;
+							var overCount = 0;
+							var catCountPrice = 0;
+							switch(roomType.val()){
+								case "f": standardPrice = 50000; 
+								if(catCount.val() > 2){
+									overCount = catCount.val() - 2;
+								}
+								break;
+								case "p": standardPrice = 30000; 
+								if(catCount.val() > 1){
+									overCount = catCount.val() - 1;
+								}
+								break;
+								case "d": standardPrice = 28000; 
+								if(catCount.val() > 1){
+									overCount = catCount.val() - 1;
+								}
+								break;
+								case "s": standardPrice = 25000; 
+								if(catCount.val() > 1){
+									overCount = catCount.val() - 1;
+								}
+								break;
+							};
+							
+							catCountPrice = overCount * addCountPrice;
+							
+							var calculateRoomPrice = standardPrice + catCountPrice;
+							
+							var overCountEx = (overCount > 0) ? " (" + overCount+ "묘 추가/" + catCountPrice +"원)" : "";
+							
+							roomPrice.text(numberComma(calculateRoomPrice) + "원" + numberComma(overCountEx));
+							
+							var selectedInTimeDate = new Date(
+								inTimeYear.val(), 
+								inTimeMonth.val(), 
+								inTimeDay.val()
+							);
+							var selectedOutTimeDate = new Date(
+								outTimeYear.val(), 
+								outTimeMonth.val(),
+								outTimeDay.val()
+							);
+							
+							
+							//이용일수
+							var calculateUseDays = dateDiff(selectedInTimeDate, selectedOutTimeDate) + 1;
+							
+							if(inTimeHour.val() >= 18){
+								calculateUseDays = calculateUseDays - 0.5;
+							}
+							
+							if(outTimeHour.val() <= 12){
+								calculateUseDays = calculateUseDays - 0.5;
+							}
+							
+							calculateUseDays = (calculateUseDays < 1) ? 1 : calculateUseDays;
+							
+							useDays.text(calculateUseDays + "일"); 
+							
+							
+							//할인전 투숙비용
+							
+							price.text(numberComma(calculateRoomPrice * calculateUseDays) + "원");
+							
+							//할인
+							var calculateDiscountRate = 0;
+							
+							if(calculateUseDays >= 30){
+								calculateDiscountRate = 30;							} else if(calculateUseDays >= 20){
+								calculateDiscountRate = 20;
+							} else if(calculateUseDays >= 10){
+								calculateDiscountRate = 10;
+							}
+							 
+							var calcuatedDiscountPrice = 0;
+							
+							if(calculateDiscountRate > 0){
+								calcuatedDiscountPrice = calculateRoomPrice * calculateUseDays * (calculateDiscountRate / 100)
+							}
+							
+							discountRate.text(calculateDiscountRate + "%");
+							discountPrice.text((calculateDiscountRate > 0) ? "-" + calcuatedDiscountPrice + "원" : "0원");
+		
+		
+							var calculateTotalPrice = calculateRoomPrice * calculateUseDays;
+							
+							calculateTotalPrice = calculateTotalPrice - calcuatedDiscountPrice;
+							
+							totalPrice.text(numberComma(calculateTotalPrice) + "원");
+							
+						};
+						
+						function dateDiff(strDt, endDt) {
+
+						    let diffDays = Math.abs(endDt.getTime() - strDt.getTime());
+						    return Math.floor(diffDays / (1000 * 60 * 60 * 24));
+						    
+						}
+						
+						
+						function dateCheck(){
+							selectedInTimeDate = new Date(
+								inTimeYear.val(), 
+								inTimeMonth.val(), 
+								inTimeDay.val()
+							);
+							selectedOutTimeDate = new Date(
+								outTimeYear.val(),
+								outTimeMonth.val(),
+								outTimeDay.val()
+							);
+							if(selectedInTimeDate.getTime() > selectedOutTimeDate.getTime()){
+								return false;	
+							}
+							return true;
+							
+						};
+						
+						function dateAdjust(){
+							outTimeYear.val(inTimeYear.val())
+							outTimeMonth.val(inTimeMonth.val())
+							outTimeDay.val(inTimeDay.val())
+						};
+						
+						function outTimedateInit(){
+							
+						};
+						
+						function inTimeDayInit(year, month){
+							inTimeDay.empty();
+							var lastDay = new Date(year, month, 0).getDate();
+							for(var i = 1; i <= lastDay; i++){
+								inTimeDay.append("<option value=\"" + i + "\">" + i + "</option>");
+							};
+						};
+						
+						function outTimeDayInit(year, month){
+							outTimeDay.empty();
+							var lastDay = new Date(year, month, 0).getDate();
+							for(var i = 1; i <= lastDay; i++){
+								
+								outTimeDay.append("<option value=\"" + i + "\">" + i + "</option>");
+							};
+						};
+						
+						function numberComma(num){
+							var num_parts = num.toString().split(".");
+						    num_parts[0] = num_parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+						    return num_parts.join(".");
+						}
+
+						
+					};
+
+				    return { 
+				        init: init,
+				    
+				    };
+				})();
+				calculator.init();
+
+		    });
+		</script>
+	</head>
+	<body>
+		<p class="ibmR addEx" style="background-color:#aaaaaa;">2024.9.10 created by 김건우</p>
+		<h1 class="ibmB">🐈묘랑묘랑 숙박요금 계산기</h1>
+		<div>
+			<h3 class="ibmB">🛎객실 타입별 기본 요금표</h3>
+			<table class="ibmR tblPrice">
+				<thead>
+					<tr>
+						<td colspan="4">
+						<p class="tblPriceThExp ibmR" style="text-align:right">
+						(1묘 추가당 5,000원 추가 요금)
+						</p>
+						</td>
+					</tr>
+					<tr>
+						<th style="background:#60cc00;width:25%">
+							<p class="tblPriceThType">패밀리</p>
+						</th>
+						<th style="background:#0080ff;width:25%">
+							<p class="tblPriceThType">프리미어</p>
+						</th>
+						<th style="background:#ff6666;width:25%">
+							<p class="tblPriceThType">디럭스</p>
+						</th>
+						<th style="background:#808080;width:25%">
+							<p class="tblPriceThType">스탠다드</p>
+						</th>
+					</tr> 
+					<tr>
+						<td style="background:#86E57F">
+							<p class="tblPriceThExp">(2묘 기준)</p>
+						</td>
+						<td style="background:#B2CCFF">
+							<p class="tblPriceThExp">(1묘 기준)</p>
+						</td>
+						<td style="background:#FFA7A7">
+							<p class="tblPriceThExp">(1묘 기준)</p>
+						</td>
+						<td style="background:#BDBDBD">
+							<p class="tblPriceThExp">(1묘 기준)</p>
+						</td>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td>50,000원</td>
+						<td>30,000원</td>
+						<td>28,000원</td>
+						<td>25,000원</td>
+					</tr>
+					<tr>
+						<td>
+							<p class="tblRoomExp">제일 큰 방, 다묘 추천</p>
+						</td>
+						<td value="30000">
+							<p class="tblRoomExp">큰 창문 or 수직 계단 2곳</p>
+						</td>
+						<td value="28000">
+							<p class="tblRoomExp">중간 창문 or 수직 계단 1곳</p>
+						</td>
+						<td value="25000">
+							<p class="tblRoomExp">창문 없음, 예민 or 소심냥이</p>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+			<h3 class="ibmB">📟계산기</h3>
+			<table class="ibmR tblPriceInput">
+				<tr>
+					<th colspan="2">객실 타입</th>
+					<td>
+						<select id="roomType" class="ibmR" style="width:4em;">
+							<option value="f">패밀리</option>
+							<option value="p" selected>프리미어</option>
+							<option value="d">디럭스</option>
+							<option value="s">스탠다드</option>
+						</select>
+					</td>
+					<th>묘 수</th>
+					<td>
+						<select id="catCount" class="ibmR" style="width:4em;">
+							<option value="1" selected>1 마리</option>
+							<option value="2">2 마리</option>
+							<option value="3">3 마리</option>
+							<option value="4">4 마리</option>
+							<option value="5">5 마리</option>
+							<option value="6">6 마리</option>
+						</select>
+					</td>
+				</tr>
+				<tr>
+					<th colspan="2">입실 시간</th>
+					<td colspan="2">
+						<select id="inTimeYear" 
+						class="ibmR" style="width:2.5em;"></select>년
+						<select id="inTimeMonth" 
+						class="ibmR" style="width:2.5em;"></select>월
+						<select id="inTimeDay" 
+						class="ibmR" style="width:2.5em;"></select>일
+						
+					</td>
+					<td>
+						<select id="inTimeHour" class="ibmR" style="width:4em;">
+						</select>
+					</td>
+				</tr>
+				<tr>
+					<th colspan="2">퇴실 시간</th>
+					<td colspan="2">
+						<select id="outTimeYear" 
+						class="ibmR" style="width:2.5em;"></select>년
+						<select id="outTimeMonth" 
+						class="ibmR" style="width:2.5em;"></select>월
+						<select id="outTimeDay" 
+						class="ibmR" style="width:2.5em;"></select>일
+						
+					</td>
+					<td>
+						<select id="outTimeHour" class="ibmR" style="width:4em;">
+						</select>
+					</td>
+				</tr>
+			</table>
+			<table class="ibmR tblPriceOutput">
+				<tr>
+					<th>객실단가</th>
+					<td><p id="roomPrice">30,000원</p></td>
+				</tr>
+				<tr>
+					<th>이용일수</th>
+					<td><p id="useDays">1일</p></td>
+				</tr>
+				<tr>
+					<th style="background-color:#FF9900;color:#ffffff">
+						할인전 투숙비용
+					</th>
+					<td style="background-color:#FF9900;color:#ffffff">
+						<p id="price">30,000원</p>
+					</td>
+				</tr>
+				<tr>
+					<th>할인율</th>
+					<td><p id="discountRate">0%</p></td>
+				</tr>
+				<tr>
+					<th>할인액</th>
+					<td><p id="discountPrice">0원</p></td>
+				</tr>
+				<tr>
+					<th style="background-color:#FF3300;color:#ffffff">
+						최종 투숙비용
+					</th>
+					<td style="background-color:#FF3300;color:#ffffff">
+						<p id="totalPrice">30,000원</p>
+					</td>
+				</tr>
+			<table>
+		</div>
+	</body>
+
+</html>

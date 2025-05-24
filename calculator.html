@@ -260,12 +260,12 @@
 							
 							var selectedInTimeDate = new Date(
 								inTimeYear.val(), 
-								inTimeMonth.val(), 
+								inTimeMonth.val()-1, 
 								inTimeDay.val()
 							);
 							var selectedOutTimeDate = new Date(
 								outTimeYear.val(), 
-								outTimeMonth.val(),
+								outTimeMonth.val()-1,
 								outTimeDay.val()
 							);
 							
@@ -329,12 +329,12 @@
 						function dateCheck(){
 							selectedInTimeDate = new Date(
 								inTimeYear.val(), 
-								inTimeMonth.val(), 
+								inTimeMonth.val()-1, 
 								inTimeDay.val()
 							);
 							selectedOutTimeDate = new Date(
 								outTimeYear.val(),
-								outTimeMonth.val(),
+								outTimeMonth.val()-1,
 								outTimeDay.val()
 							);
 							if(selectedInTimeDate.getTime() > selectedOutTimeDate.getTime()){

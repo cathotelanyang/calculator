@@ -1068,17 +1068,22 @@
 				
 				.date-inputs {
 					flex: 1;
-					min-width: 320px;
+					min-width: auto;
 					gap: 6px;
+					flex-wrap: wrap;
 				}
 				
 				.date-inputs select.year-select {
-					width: 115px !important;
+					width: auto !important;
+					min-width: 80px !important;
+					flex-grow: 1;
 				}
 
 				.date-inputs select.month-select,
 				.date-inputs select.day-select {
-					width: 75px !important;
+					width: auto !important;
+					min-width: 80px !important; 
+					flex-grow: 1;
 				}
 
 				.time-select {
@@ -2776,69 +2781,9 @@
 	</head>
 	<body>
 		<div class="container">
-			<h1 class="ibmB">묘랑묘랑 안양본점 숙박요금 계산기</h1>
+			<h1 class="ibmB">묘랑묘랑 안양본점</h1>
 			<div>
-				<h3 class="ibmB">객실 타입별 기본 요금표</h3>
-				<div class="price-section">
-					<div class="room-card">
-						<div class="room-header family">
-							<p class="tblPriceThType">패밀리</p>
-							<p class="room-price">50,000원</p>
-							<p class="room-base">2묘 기준</p>
-						</div>
-						<div class="room-features">
-							<ul class="feature-list">
-								<li>가장 넓은 공간</li>
-								<li>대형 창문</li>
-								<li><span class="recommend-text">다묘 가족 추천</span></li>
-							</ul>
-						</div>
-					</div>
-					<div class="room-card">
-						<div class="room-header premier">
-							<p class="tblPriceThType">프리미어</p>
-							<p class="room-price">30,000원</p>
-							<p class="room-base">1묘 기준</p>
-						</div>
-						<div class="room-features">
-							<ul class="feature-list">
-								<li>큰 창문</li>
-								<li>수직 공간 2곳</li>
-								<li><span class="recommend-text">활동적인 냥이 추천</span></li>
-							</ul>
-						</div>
-					</div>
-					<div class="room-card">
-						<div class="room-header deluxe">
-							<p class="tblPriceThType">디럭스</p>
-							<p class="room-price">28,000원</p>
-							<p class="room-base">1묘 기준</p>
-						</div>
-						<div class="room-features">
-							<ul class="feature-list">
-								<li>중간 창문</li>
-								<li>수직 공간 1곳</li>
-								<li><span class="recommend-text">일반적인 숙박 추천</span></li>
-							</ul>
-						</div>
-					</div>
-					<div class="room-card">
-						<div class="room-header standard">
-							<p class="tblPriceThType">스탠다드</p>
-							<p class="room-price">25,000원</p>
-							<p class="room-base">1묘 기준</p>
-						</div>
-						<div class="room-features">
-							<ul class="feature-list">
-								<li>창문 없는 조용한 공간</li>
-								<li>안정적인 환경</li>
-								<li><span class="recommend-text">예민/소심 냥이 추천</span></li>
-							</ul>
-						</div>
-					</div>
-					<p class="price-notice">* 추가 고양이 1마리당 5,000원의 요금이 추가됩니다.</p>
-				</div>
-				<h3 class="ibmB">계산기</h3>
+				<h3 class="ibmB">숙박요금 계산기</h3>
 				<table class="ibmR tblPriceInput">
 					<tr>
 						<th colspan="2">객실 타입</th>
@@ -2930,6 +2875,66 @@
 				</div>
 				<div class="copy-feedback">
 					클립보드에 복사되었습니다! ✨
+				</div>
+				<h3 class="ibmB">객실 타입별 기본 요금표</h3>
+				<div class="price-section">
+					<div class="room-card">
+						<div class="room-header family">
+							<p class="tblPriceThType">패밀리</p>
+							<p class="room-price">50,000원</p>
+							<p class="room-base">2묘 기준</p>
+						</div>
+						<div class="room-features">
+							<ul class="feature-list">
+								<li>가장 넓은 공간</li>
+								<li>대형 창문</li>
+								<li><span class="recommend-text">다묘 가족 추천</span></li>
+							</ul>
+						</div>
+					</div>
+					<div class="room-card">
+						<div class="room-header premier">
+							<p class="tblPriceThType">프리미어</p>
+							<p class="room-price">30,000원</p>
+							<p class="room-base">1묘 기준</p>
+						</div>
+						<div class="room-features">
+							<ul class="feature-list">
+								<li>큰 창문</li>
+								<li>수직 공간 2곳</li>
+								<li><span class="recommend-text">활동적인 냥이 추천</span></li>
+							</ul>
+						</div>
+					</div>
+					<div class="room-card">
+						<div class="room-header deluxe">
+							<p class="tblPriceThType">디럭스</p>
+							<p class="room-price">28,000원</p>
+							<p class="room-base">1묘 기준</p>
+						</div>
+						<div class="room-features">
+							<ul class="feature-list">
+								<li>중간 창문</li>
+								<li>수직 공간 1곳</li>
+								<li><span class="recommend-text">일반적인 숙박 추천</span></li>
+							</ul>
+						</div>
+					</div>
+					<div class="room-card">
+						<div class="room-header standard">
+							<p class="tblPriceThType">스탠다드</p>
+							<p class="room-price">25,000원</p>
+							<p class="room-base">1묘 기준</p>
+						</div>
+						<div class="room-features">
+							<ul class="feature-list">
+								<li>창문 없는 조용한 공간</li>
+								<li>안정적인 환경</li>
+								<li><span class="recommend-text">예민/소심 냥이 추천</span></li>
+							</ul>
+						</div>
+					</div>
+					<p class="price-notice">* 추가 고양이 1마리당 5,000원의 요금이 추가됩니다.</p>
 				</div>
 			</div>
 			<p class="credit-info ibmR">© 2024 묘랑묘랑 안양본점</p>

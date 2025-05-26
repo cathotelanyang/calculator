@@ -46,7 +46,12 @@
 				--input-gap: 8px;
 				--mobile-padding: 8px;
 				--mobile-gap: 4px;
-				--warning-color-rgb: 255, 126, 0;  /* #FF7E00의 RGB 값 */
+				--warning-color-rgb: 245, 166, 35; /* #F5A623의 RGB 값 (기존 warning-color와 스탠다드룸 색상이 같음) */
+				--primary-color-rgb: 74, 144, 226; /* #4A90E2의 RGB 값 */
+				--family-room-color-rgb: 39, 174, 96; /* #27AE60의 RGB 값 */
+				--premier-room-color-rgb: 52, 152, 219; /* #3498DB의 RGB 값 */
+				--deluxe-room-color-rgb: 231, 76, 60; /* #E74C3C의 RGB 값 */
+				/* --standard-room-color-rgb는 --warning-color-rgb와 동일 */
 			}
 
 			body {
@@ -122,10 +127,40 @@
 				transform: translateY(-1px);
 			}
 
+			/* 일반 select focus 스타일 */
 			select:focus {
 				outline: none;
-				border-color: var(--warning-color);
-				box-shadow: 0 0 0 3px rgba(var(--warning-color-rgb), 0.15);
+				border-color: var(--primary-color); /* 기본 포커스 색상을 primary로 변경 */
+				box-shadow: 0 0 0 3px rgba(var(--primary-color-rgb), 0.25); /* primary 색상 기반 shadow */
+			}
+
+			/* 객실 타입 선택(#roomType) 포커스 스타일 */
+			#roomType:focus {
+				/* #roomType의 기본 포커스는 각 타입별 색상을 따르므로, 여기서는 일반 select:focus를 덮어쓰지 않도록 비워두거나,
+				   아주 기본적인 outline만 남길 수 있습니다. 
+				   혹은, 현재 선택된 값에 따라 JS가 클래스를 변경하므로, 아래의 타입별 :focus 스타일이 우선 적용됩니다. */
+				border-color: currentColor; /* 현재 #roomType에 적용된 border-color 유지 */
+			}
+
+			#roomType.family:focus {
+				border-color: var(--family-room-color);
+				box-shadow: 0 0 0 3px rgba(var(--family-room-color-rgb), 0.3);
+			}
+
+			#roomType.premier:focus {
+				border-color: var(--premier-room-color);
+				box-shadow: 0 0 0 3px rgba(var(--premier-room-color-rgb), 0.3);
+			}
+
+			#roomType.deluxe:focus {
+				border-color: var(--deluxe-room-color);
+				box-shadow: 0 0 0 3px rgba(var(--deluxe-room-color-rgb), 0.3);
+			}
+
+			#roomType.standard:focus {
+				border-color: var(--standard-room-color);
+				/* standard-room-color-rgb는 warning-color-rgb와 같으므로 그것을 사용 */
+				box-shadow: 0 0 0 3px rgba(var(--warning-color-rgb), 0.3);
 			}
 
 			/* 할인전 투숙비용 표시 스타일 */
@@ -193,11 +228,22 @@
 				margin-top: 20px;
 				border-radius: 12px;
 				overflow: hidden;
-				box-shadow: 0 4px 16px rgba(255, 90, 95, 0.15);
 				width: 100%;
+				border: 3px solid var(--text-color);
+				box-shadow: 0 4px 12px rgba(44, 62, 80, 0.25);
+				/* 테이블 전체 배경색은 여기서 지정하지 않고, th/td에서 각각 지정하여 td 가려짐 방지 */
+			}
+
+			/* 최종 투숙비용 행 스타일 */
+			.final-cost-row {
+				border: none;
+				display: table; /* 행 전체를 테이블로 인식 */
+				width: 100%; /* 행 너비 100% */
+				border-collapse: collapse; /* 내부 셀 경계 한 줄로 */
 			}
 
 			.final-cost-row th {
+				display: table-cell; /* 명시적 테이블 셀 */
 				background-color: var(--danger-color) !important;
 				color: white !important;
 				font-weight: var(--font-bold);
@@ -206,33 +252,46 @@
 				text-align: left;
 				padding: 20px;
 				position: relative;
+				vertical-align: middle;
+				/* overflow: visible; /* ::after 가상요소가 넘칠 수 있도록 */
 			}
 
-			.final-cost-row th::after {
+			.final-cost-row th::after { 
 				content: '';
 				position: absolute;
-				right: -15px;
+				right: -14px; /* th 경계 바로 바깥쪽 (테두리 두께 고려) */
 				top: 50%;
 				transform: translateY(-50%) rotate(45deg);
-				width: 30px;
-				height: 30px;
+				width: 28px; /* 크기 약간 줄여봄 */
+				height: 28px; /* 크기 약간 줄여봄 */
 				background-color: var(--danger-color);
-				z-index: 1;
+				z-index: 1; 
 			}
 
 			.final-cost-row td {
+				display: table-cell; /* 명시적 테이블 셀 */
 				width: 65%;
-				position: relative;
-				background-color: white;
+				position: relative; 
+				background-color: white; 
 				padding: 20px 30px;
+				vertical-align: middle;
 			}
 
 			.final-cost-row .price-display {
-				background-color: rgba(255, 90, 95, 0.15);
-				color: var(--danger-color);
-				border: 1px solid rgba(255, 90, 95, 0.2);
-				position: relative;
-				z-index: 2;
+				background-color: rgba(255, 90, 95, 0.15); 
+				border: 1px solid rgba(255, 90, 95, 0.25);
+				box-shadow: 0 1px 4px rgba(255, 90, 95, 0.08);
+				padding: 16px 24px;
+				color: var(--danger-color); 
+				border-radius: 8px;
+				text-align: right;
+				position: relative; 
+				z-index: 0; /* th::after 보다 낮은 z-index (또는 td에 z-index를 주고 price-display는 auto) */
+			}
+
+			.final-cost-row .main-price {
+				font-size: calc(var(--font-size-xl) * 1.1);  /* 글자 크기 약간 증가 */
+				font-weight: var(--font-bold);
 			}
 
 			/* 날짜 선택 그룹 스타일 */
@@ -274,17 +333,35 @@
 					font-size: var(--font-size-sm);
 				}
 
-				.date-group {
-					flex-wrap: wrap;
-				}
-
-				.date-inputs {
+				/* 날짜/시간 선택 UI 레이아웃 수정 */
+				.date-container {
+					display: flex;
+					flex-direction: column;
+					gap: 8px; /* .date-inputs와 .time-select 사이 간격 */
 					width: 100%;
 				}
 
-				.time-select {
+				.date-inputs { /* 연, 월, 일 select를 감싸는 컨테이너 */
+					display: flex;
+					flex-wrap: wrap; /* 내부 select 요소들이 줄바꿈되도록 함 */
 					width: 100%;
-					min-width: unset;
+					gap: 6px; /* 월과 일 select 사이 간격 */
+				}
+
+				.date-inputs select[id*="Year"] { /* ID에 Year가 포함된 select (연도) */
+					width: 100%; /* 한 줄 전체 차지 */
+					margin-bottom: 6px; /* 월/일 라인과의 간격 */
+				}
+
+				.date-inputs select[id*="Month"],
+				.date-inputs select[id*="Day"] {
+					flex: 1; /* 남은 공간을 월, 일이 나눠 가짐 */
+					min-width: 0; /* flex 아이템이 작아질 수 있도록 */
+				}
+
+				.time-select { /* 시간 select */
+					width: 100%; /* 한 줄 전체 차지 */
+					min-width: unset !important; /* PC 스타일의 min-width를 덮어쓰기 */
 				}
 			}
 
@@ -332,7 +409,25 @@
 			#roomType.premier:hover,
 			#roomType.deluxe:hover,
 			#roomType.standard:hover {
-				background-color: rgba(255, 126, 0, 0.12);
+				/* 호버 시에는 배경색을 약간 투명하게 하여 인터랙션 표시 */
+				/* 구체적인 투명도는 디자인에 맞춰 조정 가능 */
+				/* 예를 들어, 현재 배경색에서 alpha 값을 0.85 정도로 낮춤 */
+				/* 이 부분은 현재 요청과 직접 관련은 없으나, 포커스와 호버 스타일 일관성을 위해 고려할 수 있음 */
+				/* background-color: rgba(var(--warning-color-rgb), 0.12); 기존 호버 스타일은 모든 select에 적용됨 */
+				/* 각 타입별 호버 스타일은 아래처럼 개별 정의 필요 */
+			}
+
+			#roomType.family:hover {
+				background-color: rgba(var(--family-room-color-rgb), 0.85);
+			}
+			#roomType.premier:hover {
+				background-color: rgba(var(--premier-room-color-rgb), 0.85);
+			}
+			#roomType.deluxe:hover {
+				background-color: rgba(var(--deluxe-room-color-rgb), 0.85);
+			}
+			#roomType.standard:hover {
+				background-color: rgba(var(--warning-color-rgb), 0.85); /* standard는 warning color 사용 */
 			}
 
 			/* 묘 수 선택 스타일 */
@@ -1603,20 +1698,22 @@
 
 			/* 최종 투숙비용 행 스타일 */
 			.final-cost-row {
-				border: 2px solid rgba(255, 90, 95, 0.3);  /* 행 전체에 외곽선 추가 */
-				background-color: rgba(255, 90, 95, 0.02);  /* 행 전체에 연한 배경색 추가 */
+				border: none; /* 테이블 전체 테두리가 있으므로 행 테두리 제거 */
+				background-color: rgba(255, 90, 95, 0.02);  /* 원래 배경색 유지 또는 테이블 배경과 통일 */
 			}
 
 			.final-cost-row th,
 			.final-cost-row td {
-				padding: 16px !important;  /* 셀 내부 여백 증가 */
+				padding: 16px !important;
 			}
 
 			.final-cost-row .price-display {
-				background-color: rgba(255, 90, 95, 0.15);
-				border: 2px solid rgba(255, 90, 95, 0.3);  /* 외곽선 두께 증가 */
-				box-shadow: 0 2px 8px rgba(255, 90, 95, 0.1);  /* 그림자 효과 추가 */
-				padding: 16px 24px;  /* 내부 여백 증가 */
+				background-color: rgba(255, 90, 95, 0.15); /* 원래 배경색 */
+				/* border: 2px solid rgba(255, 90, 95, 0.3); */ /* 내부 display 테두리도 제거 또는 약화 */
+				border: 1px solid rgba(255, 90, 95, 0.25); /* 매우 연한 테두리로 변경 또는 제거 */
+				box-shadow: 0 1px 4px rgba(255, 90, 95, 0.08);  /* 원래 그림자보다 약하게 */
+				padding: 16px 24px;
+				color: var(--danger-color); /* 원래 글자색 (명시적으로 지정) */
 			}
 
 			.final-cost-row .main-price {
@@ -1658,7 +1755,7 @@
 			/* 모바일 환경에서의 테이블 입력 영역 수정 */
 			@media screen and (max-width: 768px) {
 				.tblPriceInput td {
-					padding: 12px 8px;  /* 패딩 축소 */
+					padding: 12px 8px !important;  /* 패딩 축소 - 이 규칙이 td 패딩을 최종 결정 */
 				}
 
 				/* 입력 요소 컨테이너 */
@@ -1686,42 +1783,81 @@
 				}
 			}
 
+			/* 상단 정보 버튼 기본 스타일 (PC) */
+			.info-buttons {
+				display: flex; /* 버튼들을 가로로 배치 */
+				flex-wrap: nowrap; /* 버튼들을 한 줄에 강제 배치 */
+				gap: 10px; /* 버튼 사이 간격 약간 줄임 */
+				padding: 16px;
+				background-color: var(--background-light);
+				border-radius: 12px;
+				border: 1px solid var(--border-color);
+				justify-content: center; /* 버튼들을 중앙 정렬 */
+				margin-bottom: 20px; /* 다른 섹션과의 간격 */
+				overflow-x: auto; /* 내용이 넘칠 경우 가로 스크롤 (만약을 위해) */
+			}
+
+			.info-button {
+				display: inline-flex; 
+				align-items: center; 
+				justify-content: center; 
+				gap: 8px; 
+				padding: 10px 15px; /* 패딩 약간 줄임 */
+				font-size: var(--font-size-sm); /* 폰트 크기 약간 줄임 */
+				font-weight: var(--font-medium);
+				border-radius: 8px;
+				transition: all 0.2s ease;
+				background-color: white;
+				border: 1px solid var(--border-color);
+				color: var(--primary-color);
+				text-decoration: none; 
+				cursor: pointer;
+				flex-grow: 1; /* 공간을 균등하게 나눠 가짐 */
+				flex-basis: 0; /* flex-grow와 함께 사용 */
+				min-width: auto; /* 최소 너비 제한 해제 또는 줄임 */
+				text-align: center;
+				white-space: nowrap; /* 버튼 내 텍스트 줄바꿈 방지 */
+			}
+
+			.info-button i {
+				font-size: 1.1em; /* 아이콘 크기 */
+				color: var(--primary-color); /* 아이콘 색상 */
+			}
+
+			.info-button:hover {
+				background-color: var(--primary-color);
+				color: white;
+				border-color: var(--primary-color);
+				transform: translateY(-2px); /* 살짝 떠오르는 효과 */
+				box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+			}
+
+			.info-button:hover i {
+				color: white;
+			}
+
+			/* 예약 버튼 강조 (PC) */
+			.info-button.reservation {
+				background-color: var(--primary-color);
+				color: white;
+				border-color: var(--primary-color);
+				font-weight: var(--font-semibold); /* 약간 더 강조 */
+				/* PC에서는 예약 버튼이 특별히 길 필요는 없으므로, 다른 버튼과 동일한 너비 가짐 */
+			}
+
+			.info-button.reservation i {
+				color: white;
+			}
+
+			.info-button.reservation:hover {
+				background-color: #3a7bc8; /* primary-color보다 약간 어둡게 */
+				border-color: #3a7bc8;
+			}
+
 			/* 상단 정보 버튼 모바일 스타일 개선 */
 			@media screen and (max-width: 768px) {
 				.info-buttons {
 					display: grid;
-					grid-template-columns: repeat(2, 1fr);  /* 2열 그리드로 변경 */
-					gap: 8px;
-					padding: 12px;
-				}
-
-				.info-button {
-					padding: 12px 8px;
-					font-size: var(--font-size-sm);
-					width: 100%;
-					height: 100%;
-					min-height: 60px;  /* 최소 높이 설정 */
-					flex-direction: column;  /* 아이콘과 텍스트를 세로로 배치 */
-					text-align: center;
-					justify-content: center;
-				}
-
-				.info-button i {
-					font-size: 1.2em;
-					margin-bottom: 4px;
-				}
-
-				/* 예약 버튼은 전체 너비로 */
-				.info-button.reservation {
-					grid-column: 1 / -1;  /* 전체 너비 차지 */
-					background-color: var(--danger-color);
-					min-height: 50px;  /* 다른 버튼보다 약간 작게 */
-				}
-			}
-
-			/* 초소형 화면 대응 */
-			@media screen and (max-width: 360px) {
-				.info-buttons {
 					grid-template-columns: 1fr;  /* 1열로 변경 */
 				}
 
@@ -1736,6 +1872,100 @@
 					margin-bottom: 0;
 					margin-right: 8px;
 				}
+			}
+
+			/* 입력 테이블 전체 스타일 */
+			.tblPriceInput {
+				border: 1px solid var(--border-color); /* 테이블 전체 외곽선 */
+				border-radius: 12px; /* 테이블 전체 둥근 모서리 */
+				box-shadow: 0 2px 8px var(--shadow-color); /* 테이블 전체 그림자 */
+				overflow: hidden; /* 내부 요소가 둥근 모서리를 넘지 않도록 */
+				background-color: white; /* 테이블 배경 흰색 */
+				/* border-collapse: separate; 와 border-spacing: 0; 는 PC 스타일에서 이미 적용됨 */
+				margin: 20px 0; /* PC 스타일의 margin 유지 */
+				width: 100%;    /* PC 스타일의 width 유지 */
+			}
+
+			.tblPriceInput tr {
+				margin-bottom: 0; /* 각 행의 카드 스타일 제거 */
+				border-radius: 0;
+				box-shadow: none;
+				background-color: transparent; /* 테이블 배경색을 사용하도록 */
+			}
+
+			.tblPriceInput th {
+				padding: 14px; /* 기존 패딩 유지 */
+				background-color: var(--background-light); /* 기존 배경색 유지 */
+				border-radius: 0; /* 개별 둥근 모서리 제거 */
+				font-weight: 600;
+				width: 75px; /* 고정 너비 */
+				border: none; /* 모든 테두리 초기화 */
+				border-right: 1px solid var(--border-color); /* 오른쪽 구분선 */
+				border-bottom: 1px solid var(--border-color); /* 아래쪽 구분선 */
+				text-align: center;
+				vertical-align: middle;
+			}
+
+			.tblPriceInput td {
+				/* padding: 16px !important; 이 규칙은 아래 더 구체적인 규칙으로 대체됨 */
+				background-color: white; /* td 배경색 */
+				border: none; /* 모든 테두리 초기화 */
+				border-bottom: 1px solid var(--border-color); /* 아래쪽 구분선 */
+				vertical-align: middle;
+			}
+
+			/* 마지막 행의 th와 td의 아래쪽 테두리 제거 */
+			.tblPriceInput tr:last-child > th,
+			.tblPriceInput tr:last-child > td {
+				border-bottom: none;
+			}
+
+			/* 할인 정보 모바일 스타일 수정 */
+			.discount-row .discount-info {
+				display: flex;
+				width: 100%;
+				background-color: rgba(255, 126, 0, 0.10); /* 기존 개별 박스 배경보다 약간 연하게 */
+				border: 1px solid rgba(255, 126, 0, 0.15);
+				border-radius: 8px; /* 다른 UI 요소들과 일관성 있는 radius */
+				box-shadow: 0 2px 4px rgba(255, 126, 0, 0.08);
+				overflow: hidden;
+				align-items: stretch; /* 내부 요소들이 세로로 꽉 차도록 */
+				margin-top: 8px; /* 위 요소와의 간격 */
+			}
+
+			.discount-row .discount-rate,
+			.discount-row .discount-amount {
+				/* .price-display 또는 자체 스타일에서 오는 불필요한 부분 초기화 */
+				background: none !important;
+				border: none !important;
+				box-shadow: none !important;
+				min-width: unset !important;
+				border-radius: 0 !important; /* 내부 요소의 radius 제거 */
+				
+				flex: 1; /* 공간을 균등하게 차지 */
+				text-align: center;
+				font-size: var(--font-size-sm); /* 이미 적용되어 있을 수 있음 */
+				color: #FF7E00; /* 기존 텍스트 색상 */
+				padding: 10px 5px !important; /* 상하 패딩은 유지, 좌우 패딩은 최소화 */
+				display: flex; /* 내부 텍스트 중앙 정렬을 위해 */
+				align-items: center;
+				justify-content: center;
+				line-height: 1.3; /* 줄간격 조정 */
+			}
+
+			.discount-row .discount-rate {
+				border-right: 1px solid rgba(255, 126, 0, 0.25) !important; /* 구분선 */
+				font-weight: var(--font-medium); /* 할인율 폰트 두께 */
+			}
+
+			.discount-row .discount-amount {
+				font-weight: var(--font-bold); /* 할인금액 강조 */
+			}
+
+			/* 기존 .discount-rate, .discount-amount 에 적용된 ::before 가상 요소 숨기기 (모바일) */
+			.discount-rate::before,
+			.discount-amount::before {
+				display: none !important; 
 			}
 		</style>
 		<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
@@ -1938,8 +2168,8 @@
 				},
 				
 				animatePriceChange: function(element) {
-					element.addClass("price-update-animation");
-					setTimeout(() => element.removeClass("price-update-animation"), 500);
+					element.addClass("price-change"); // CSS에 정의된 'price-change' 클래스 사용
+					setTimeout(() => element.removeClass("price-change"), 600); // 애니메이션 지속시간(0.6s)과 일치
 				}
 			};
 
@@ -2067,31 +2297,261 @@
 				// 입실 연도 변경 이벤트
 				DOM.dateInputs.checkIn.year.off("change").on("change", function() {
 					const selectedYear = parseInt($(this).val());
-					updateMonthOptions(DOM.dateInputs.checkIn, selectedYear);
+					const checkInMonth = parseInt(DOM.dateInputs.checkIn.month.val());
 					
-					// 퇴실 연도도 동일하게 설정
-					DOM.dateInputs.checkOut.year.val(selectedYear);
-					updateMonthOptions(DOM.dateInputs.checkOut, selectedYear);
+					updateMonthOptions(DOM.dateInputs.checkIn, selectedYear, true); // 입실 연도 변경 시 월 옵션 업데이트
+					updateDayOptions(DOM.dateInputs.checkIn, DOM.dateInputs.checkIn.day.val()); // 일 옵션도 업데이트
+
+					validateAndAdjustCheckoutDate();
 					calculateAndUpdatePrice();
 				});
 
-				// 기타 날짜 입력 이벤트
-				const dateInputs = [
-					DOM.dateInputs.checkIn.day,
+				// 입실 월 변경 이벤트
+				DOM.dateInputs.checkIn.month.off("change").on("change", function() {
+					updateDayOptions(DOM.dateInputs.checkIn, DOM.dateInputs.checkIn.day.val()); // 현재 월 기준으로 일 옵션 업데이트
+
+					validateAndAdjustCheckoutDate();
+					calculateAndUpdatePrice();
+				});
+
+				// 입실 일 변경 이벤트
+				DOM.dateInputs.checkIn.day.off("change").on("change", function() {
+					validateAndAdjustCheckoutDate();
+					calculateAndUpdatePrice();
+				});
+
+				// 퇴실 연도 변경 이벤트
+				DOM.dateInputs.checkOut.year.off("change").on("change", function() {
+					const selectedYear = parseInt($(this).val());
+					updateMonthOptions(DOM.dateInputs.checkOut, selectedYear, false);
+					updateDayOptions(DOM.dateInputs.checkOut, DOM.dateInputs.checkOut.day.val());
+
+					// 퇴실일이 입실일보다 앞서지 않도록 유효성 검사 (필요시 추가)
+					// 현재는 validateAndAdjustCheckoutDate()가 입실일 변경 시 주로 처리
+					calculateAndUpdatePrice();
+				});
+				
+				// 퇴실 월 변경 이벤트
+				DOM.dateInputs.checkOut.month.off("change").on("change", function() {
+					updateDayOptions(DOM.dateInputs.checkOut, DOM.dateInputs.checkOut.day.val());
+					// 퇴실일이 입실일보다 앞서지 않도록 유효성 검사 (필요시 추가)
+					calculateAndUpdatePrice();
+				});
+
+				// 퇴실 일 및 시간, 입실 시간 변경 이벤트
+				const otherInputs = [
 					DOM.dateInputs.checkIn.hour,
-					DOM.dateInputs.checkOut.year,
 					DOM.dateInputs.checkOut.day,
 					DOM.dateInputs.checkOut.hour
 				];
 
-				dateInputs.forEach(input => {
+				otherInputs.forEach(input => {
 					input.off("change").on("change", function() {
 						if (this.id.includes("Hour")) {
 							UIManager.updateTimeStyle();
 						}
+						// 퇴실일 변경 시에도 유효성 검사 (예: 입실일보다 뒤인지)
+						// calculateAndUpdatePrice 이전에 validateAndAdjustCheckoutDate() 호출도 고려
 						calculateAndUpdatePrice();
 					});
 				});
+			}
+
+			// 퇴실 날짜 유효성 검사 및 조정 함수
+			function validateAndAdjustCheckoutDate() {
+				const checkInYear = parseInt(DOM.dateInputs.checkIn.year.val());
+				const checkInMonth = parseInt(DOM.dateInputs.checkIn.month.val());
+				const checkInDay = parseInt(DOM.dateInputs.checkIn.day.val());
+				const checkInDate = new Date(checkInYear, checkInMonth - 1, checkInDay);
+
+				let checkOutYear = parseInt(DOM.dateInputs.checkOut.year.val());
+				let checkOutMonth = parseInt(DOM.dateInputs.checkOut.month.val());
+				let checkOutDay = parseInt(DOM.dateInputs.checkOut.day.val());
+				
+				// checkOutDay가 현재 월에 유효하지 않을 수 있으므로, new Date 전에 보정
+				const daysInCheckoutMonth = new Date(checkOutYear, checkOutMonth, 0).getDate();
+				if (checkOutDay > daysInCheckoutMonth) {
+					checkOutDay = daysInCheckoutMonth;
+				}
+				let checkOutDate = new Date(checkOutYear, checkOutMonth - 1, checkOutDay);
+
+				const minCheckoutDate = new Date(checkInDate); // 최소 퇴실일을 입실일 당일로 설정
+
+				if (checkOutDate < minCheckoutDate) {
+					DOM.dateInputs.checkOut.year.val(minCheckoutDate.getFullYear());
+					updateMonthOptions(DOM.dateInputs.checkOut, minCheckoutDate.getFullYear(), false);
+					DOM.dateInputs.checkOut.month.val(minCheckoutDate.getMonth() + 1);
+					updateDayOptions(DOM.dateInputs.checkOut, minCheckoutDate.getDate());
+				} else {
+					// 퇴실일이 유효하더라도, 월/일 select의 옵션은 현재 값 기준으로 갱신되어야 함
+					updateMonthOptions(DOM.dateInputs.checkOut, checkOutYear, false);
+					updateDayOptions(DOM.dateInputs.checkOut, checkOutDay); // 현재 checkOutDay로 옵션 갱신
+				}
+			}
+
+			function updateMonthOptions(dateInputs, selectedYear, isCheckIn) {
+				const currentVal = dateInputs.month.val() ? parseInt(dateInputs.month.val()) : null;
+				const monthSelect = dateInputs.month;
+				monthSelect.empty();
+				
+				const today = new Date();
+				let startMonth = 1;
+				
+				if (isCheckIn) { 
+					if (selectedYear === today.getFullYear()) {
+						startMonth = today.getMonth() + 1; 
+					}
+				} else { 
+					const checkInYear = parseInt(DOM.dateInputs.checkIn.year.val());
+					const checkInMonth = parseInt(DOM.dateInputs.checkIn.month.val());
+					if (selectedYear === checkInYear) {
+						startMonth = checkInMonth; 
+					}
+				}
+
+				for (let i = startMonth; i <= 12; i++) {
+					monthSelect.append($("<option>").val(i).text(`${i}월`));
+				}
+
+				if (currentVal && monthSelect.find('option[value="' + currentVal + '"]').length > 0) {
+					monthSelect.val(currentVal);
+				} else if (monthSelect.find("option").length > 0) {
+					monthSelect.val(monthSelect.find("option:first").val());
+				} else {
+				    // 선택 가능한 월 옵션이 없는 경우 (예: 입실일이 12월인데 퇴실 연도를 같은해로 한 경우)
+                    // 이 경우 상위 로직(validateAndAdjustCheckoutDate)에서 연도를 조정해야 할 수 있음.
+				}
+			}
+
+			function updateDayOptions(dateInputs, selectedDayToTry) {
+				const year = parseInt(dateInputs.year.val());
+				const month = parseInt(dateInputs.month.val());
+				const daySelect = dateInputs.day;
+				const currentVal = daySelect.val() ? parseInt(daySelect.val()) : null;
+				daySelect.empty();
+
+				const today = new Date();
+				let startDay = 1;
+				const isCheckInSelect = dateInputs.year.attr('id').includes('checkIn');
+
+				if (isCheckInSelect) {
+					if (year === today.getFullYear() && month === (today.getMonth() + 1)) {
+						startDay = today.getDate();
+					}
+				} else { // 퇴실 날짜의 일 옵션 설정
+					const checkInYear = parseInt(DOM.dateInputs.checkIn.year.val());
+					const checkInMonth = parseInt(DOM.dateInputs.checkIn.month.val());
+					const checkInDay = parseInt(DOM.dateInputs.checkIn.day.val());
+
+					if (year === checkInYear && month === checkInMonth) {
+						startDay = checkInDay; // 퇴실일은 입실일 당일부터 선택 가능
+					}
+				}
+
+				const daysInMonth = new Date(year, month, 0).getDate();
+				for (let i = startDay; i <= daysInMonth; i++) {
+						daySelect.append($("<option>").val(i).text(`${i}일`));
+				}
+				
+				let finalSelectedDay = selectedDayToTry !== null && selectedDayToTry !== undefined ? parseInt(selectedDayToTry) : currentVal;
+
+				if (daySelect.find('option[value="' + finalSelectedDay + '"]').length > 0) {
+    				daySelect.val(finalSelectedDay);
+				} else if (daySelect.find("option").length > 0) {
+					daySelect.val(daySelect.find("option:first").val());
+				} else {
+					// 날짜 옵션이 없는 경우의 처리: validateAndAdjustCheckoutDate에서 다음달로 넘기거나 해야함.
+					// 예를 들어 입실일이 2월 28일이고, 퇴실일 계산 시 startDay가 29일인데 2월이 28일까지인 경우.
+					// 이 경우 validateAndAdjustCheckoutDate 함수가 호출되어 minCheckoutDate로 설정되면서 월/일이 조정될 것임.
+				}
+			}
+
+			function initializeDateSelects() {
+				const today = new Date();
+				const currentYear = today.getFullYear();
+
+				[DOM.dateInputs.checkIn.year, DOM.dateInputs.checkOut.year].forEach(yearSelect => {
+					yearSelect.empty();
+					yearSelect.append($("<option>").val(currentYear).text(`${currentYear}년`));
+					yearSelect.append($("<option>").val(currentYear + 1).text(`${currentYear + 1}년`));
+				});
+
+				// 입실 날짜 초기화 (오늘)
+				DOM.dateInputs.checkIn.year.val(currentYear);
+				updateMonthOptions(DOM.dateInputs.checkIn, currentYear, true); 
+				DOM.dateInputs.checkIn.month.val(today.getMonth() + 1);
+				updateDayOptions(DOM.dateInputs.checkIn, today.getDate());
+
+				// 퇴실 날짜 초기화 (내일)
+				const tomorrow = new Date(today);
+				tomorrow.setDate(today.getDate() + 1);
+				DOM.dateInputs.checkOut.year.val(tomorrow.getFullYear());
+				updateMonthOptions(DOM.dateInputs.checkOut, tomorrow.getFullYear(), false); 
+				DOM.dateInputs.checkOut.month.val(tomorrow.getMonth() + 1);
+				updateDayOptions(DOM.dateInputs.checkOut, tomorrow.getDate());
+				
+				// 초기 시간 설정
+				initializeTimeSelects(); 
+			}
+
+			function initializeTimeSelects() {
+				// 입실 시간 옵션 설정
+				DOM.dateInputs.checkIn.hour.empty();
+				for (let i = 10; i <= 20; i++) {
+					const option = $("<option>").val(i).text(`${i}:00`);
+					if (i >= CONFIG.TIME.CHECK_IN.LATE_CHECK_IN_HOUR) {
+						option.addClass("time-notice").text(`${i}:00 (늦은 입실)`);
+					}
+					DOM.dateInputs.checkIn.hour.append(option);
+				}
+
+				// 퇴실 시간 옵션 설정
+				DOM.dateInputs.checkOut.hour.empty();
+				for (let i = 10; i <= 20; i++) {
+					const option = $("<option>").val(i).text(`${i}:00`);
+					if (i <= CONFIG.TIME.CHECK_OUT.EARLY_CHECK_OUT_HOUR) {
+						option.addClass("time-notice").text(`${i}:00 (빠른 퇴실)`);
+					}
+					DOM.dateInputs.checkOut.hour.append(option);
+					}
+
+					// 기본값 설정
+				DOM.dateInputs.checkIn.hour.val(CONFIG.TIME.CHECK_IN.DEFAULT_HOUR);
+				DOM.dateInputs.checkOut.hour.val(CONFIG.TIME.CHECK_OUT.DEFAULT_HOUR);
+			}
+
+			function initializeCalculator() {
+				// 시간 선택 초기화
+				initializeTimeSelects();
+				// 날짜 선택 초기화
+				initializeDateSelects();
+				// 이벤트 리스너 설정
+				setupEventListeners();
+				// 초기 스타일 적용
+				applyInitialStyles();
+			}
+
+			function applyInitialStyles() {
+				const roomType = DOM.room.type.val();
+				let roomClass;
+				switch(roomType) {
+					case 'f': roomClass = 'family'; break;
+					case 'p': roomClass = 'premier'; break;
+					case 'd': roomClass = 'deluxe'; break;
+					case 's': roomClass = 'standard'; break;
+				}
+
+				// 객실 타입 스타일 적용
+				DOM.room.type.removeClass("family premier deluxe standard").addClass(roomClass);
+				DOM.room.catCount.removeClass("family premier deluxe standard").addClass(roomClass);
+				DOM.price.room.removeClass("family premier deluxe standard").addClass(roomClass);
+
+				// 객실 이름 업데이트
+				const roomName = DOM.room.type.find("option:selected").text();
+				$(".room-type-text").text(roomName).removeClass("family premier deluxe standard").addClass('room-type-text ' + roomClass);
+
+				// 시간 스타일 적용
+				UIManager.updateTimeStyle();
 			}
 
 			function calculateAndUpdatePrice() {
@@ -2229,137 +2689,6 @@
 					DOM.price.discount.amount.text("0원");
 					DOM.price.final.text("0원");
 				}
-			}
-
-			function updateMonthOptions(dateInputs, selectedYear) {
-				const currentDate = new Date();
-				const tomorrow = new Date(currentDate);
-				tomorrow.setDate(currentDate.getDate() + 1);
-				
-				const startMonth = (selectedYear === currentDate.getFullYear()) ? tomorrow.getMonth() + 1 : 1;
-				const endMonth = 12;
-
-				dateInputs.month.empty();
-				for (let i = startMonth; i <= endMonth; i++) {
-					dateInputs.month.append($("<option>").val(i).text(`${i}월`));
-				}
-				
-				// 첫 번째 유효한 월 선택
-				dateInputs.month.val(startMonth);
-				// 일 옵션 업데이트
-				updateDayOptions(dateInputs, tomorrow.getDate());
-			}
-
-			function updateDayOptions(dateInputs, selectedDay) {
-				const year = parseInt(dateInputs.year.val());
-				const month = parseInt(dateInputs.month.val());
-				const lastDay = new Date(year, month, 0).getDate();
-				const currentDate = new Date();
-				const tomorrow = new Date(currentDate);
-				tomorrow.setDate(currentDate.getDate() + 1);
-				
-				let startDay = 1;
-				if (year === currentDate.getFullYear() && month === tomorrow.getMonth() + 1) {
-					startDay = tomorrow.getDate();
-				}
-				
-				dateInputs.day.empty();
-				for (let i = startDay; i <= lastDay; i++) {
-					dateInputs.day.append($("<option>").val(i).text(`${i}일`));
-				}
-				
-				// 선택된 일자가 유효한지 확인하고 설정
-				const validDay = Math.min(Math.max(selectedDay, startDay), lastDay);
-				dateInputs.day.val(validDay);
-				
-				// 가격 재계산
-				calculateAndUpdatePrice();
-			}
-
-			function initializeTimeSelects() {
-				// 입실 시간 옵션 설정
-				DOM.dateInputs.checkIn.hour.empty();
-				for (let i = 10; i <= 20; i++) {
-					const option = $("<option>").val(i).text(`${i}:00`);
-					if (i >= CONFIG.TIME.CHECK_IN.LATE_CHECK_IN_HOUR) {
-						option.addClass("time-notice").text(`${i}:00 (늦은 입실)`);
-					}
-					DOM.dateInputs.checkIn.hour.append(option);
-				}
-
-				// 퇴실 시간 옵션 설정
-				DOM.dateInputs.checkOut.hour.empty();
-				for (let i = 10; i <= 20; i++) {
-					const option = $("<option>").val(i).text(`${i}:00`);
-					if (i <= CONFIG.TIME.CHECK_OUT.EARLY_CHECK_OUT_HOUR) {
-						option.addClass("time-notice").text(`${i}:00 (빠른 퇴실)`);
-					}
-					DOM.dateInputs.checkOut.hour.append(option);
-					}
-
-					// 기본값 설정
-				DOM.dateInputs.checkIn.hour.val(CONFIG.TIME.CHECK_IN.DEFAULT_HOUR);
-				DOM.dateInputs.checkOut.hour.val(CONFIG.TIME.CHECK_OUT.DEFAULT_HOUR);
-			}
-
-			function initializeDateSelects() {
-				const currentDate = new Date();
-				const tomorrow = new Date(currentDate);
-				tomorrow.setDate(currentDate.getDate() + 1);
-				const currentYear = currentDate.getFullYear();
-				
-				// 년도 옵션 설정 (현재 년도와 다음 년도만)
-				[currentYear, currentYear + 1].forEach(year => {
-					DOM.dateInputs.checkIn.year.append($("<option>").val(year).text(`${year}년`));
-					DOM.dateInputs.checkOut.year.append($("<option>").val(year).text(`${year}년`));
-				});
-
-				// 체크인 날짜 초기화 (내일)
-				DOM.dateInputs.checkIn.year.val(tomorrow.getFullYear());
-				updateMonthOptions(DOM.dateInputs.checkIn, tomorrow.getFullYear());
-				
-				// 체크아웃 날짜 초기화 (모레)
-				const dayAfterTomorrow = new Date(tomorrow);
-				dayAfterTomorrow.setDate(tomorrow.getDate() + 1);
-				DOM.dateInputs.checkOut.year.val(dayAfterTomorrow.getFullYear());
-				updateMonthOptions(DOM.dateInputs.checkOut, dayAfterTomorrow.getFullYear());
-
-				// 초기 계산
-				calculateAndUpdatePrice();
-			}
-
-			function initializeCalculator() {
-				// 시간 선택 초기화
-				initializeTimeSelects();
-				// 날짜 선택 초기화
-				initializeDateSelects();
-				// 이벤트 리스너 설정
-				setupEventListeners();
-				// 초기 스타일 적용
-				applyInitialStyles();
-			}
-
-			function applyInitialStyles() {
-				const roomType = DOM.room.type.val();
-				let roomClass;
-				switch(roomType) {
-					case 'f': roomClass = 'family'; break;
-					case 'p': roomClass = 'premier'; break;
-					case 'd': roomClass = 'deluxe'; break;
-					case 's': roomClass = 'standard'; break;
-				}
-
-				// 객실 타입 스타일 적용
-				DOM.room.type.removeClass("family premier deluxe standard").addClass(roomClass);
-				DOM.room.catCount.removeClass("family premier deluxe standard").addClass(roomClass);
-				DOM.price.room.removeClass("family premier deluxe standard").addClass(roomClass);
-
-				// 객실 이름 업데이트
-				const roomName = DOM.room.type.find("option:selected").text();
-				$(".room-type-text").text(roomName).removeClass("family premier deluxe standard").addClass('room-type-text ' + roomClass);
-
-				// 시간 스타일 적용
-				UIManager.updateTimeStyle();
 			}
 		</script>
 	</head>

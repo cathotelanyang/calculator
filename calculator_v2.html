@@ -335,11 +335,17 @@
 					padding: 12px;
 					background-color: #F5F8FA;
 					font-size: var(--font-size-sm);
+					min-width: 320px;  /* 최소 너비 설정 */
+					overflow-x: hidden;  /* 가로 스크롤 방지 */
 				}
 				
 				.container {
 					padding: 15px;
 					border-radius: 12px;
+					width: 100%;
+					max-width: 100%;
+					box-sizing: border-box;
+					overflow-x: hidden;
 				}
 				
 				h1 {
@@ -2183,6 +2189,66 @@
 			.room-type-text.premier { color: var(--premier-room-color); }
 			.room-type-text.deluxe { color: var(--deluxe-room-color); }
 			.room-type-text.standard { color: var(--standard-room-color); }
+
+			/* 입력 요소 기본 스타일 */
+			select, input[type="text"], input[type="number"] {
+				width: 100%;
+				max-width: 100%;
+				box-sizing: border-box;
+				padding: 10px 12px;
+				border: 1px solid var(--border-color);
+				border-radius: 8px;
+				font-size: var(--font-size-base);
+				font-family: "IBM Plex Sans KR", sans-serif;
+				transition: all 0.2s ease;
+				-webkit-appearance: none;  /* iOS 기본 스타일 제거 */
+				-moz-appearance: none;
+				appearance: none;
+			}
+
+			/* 입력 요소 포커스 스타일 */
+			select:focus, input[type="text"]:focus, input[type="number"]:focus {
+				outline: none;
+				border-color: var(--primary-color);
+				box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+			}
+
+			/* 숫자 입력 화살표 스타일링 */
+			input[type="number"]::-webkit-inner-spin-button,
+			input[type="number"]::-webkit-outer-spin-button {
+				-webkit-appearance: none;
+				margin: 0;
+			}
+
+			input[type="number"] {
+				-moz-appearance: textfield;
+			}
+
+			/* 테이블 셀 내부 입력 요소 */
+			.tblPriceInput td input,
+			.tblPriceInput td select {
+				width: 100%;
+				max-width: 100%;
+				margin: 0;
+			}
+
+			/* 모바일 대응 추가 스타일 */
+			@media screen and (max-width: 768px) {
+				.tblPriceInput td {
+					padding: 12px !important;
+				}
+
+				select, input[type="text"], input[type="number"] {
+					font-size: var(--font-size-base);
+					padding: 12px;
+					height: auto;
+				}
+
+				/* 터치 타겟 크기 개선 */
+				select, button, input[type="submit"] {
+					min-height: 44px;  /* iOS 권장 최소 터치 영역 */
+				}
+			}
 		</style>
 		<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 		<script src="https://developers.kakao.com/sdk/js/kakao.js"></script>

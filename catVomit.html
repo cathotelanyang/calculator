@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>고양이 토 색깔별 정보</title>
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            margin: 0;
+            padding: 15px;
+            background-color: #f0f2f5; /* 약간 더 어두운 배경 */
+            color: #333;
+            line-height: 1.7;
+        }
+        .container {
+            max-width: 850px; /* 너비 약간 증가 */
+            margin: 20px auto; /* 상하 마진 추가 */
+            background-color: #ffffff;
+            padding: 25px;
+            border-radius: 10px; /* 좀 더 둥글게 */
+            box-shadow: 0 5px 20px rgba(0,0,0,0.08); /* 그림자 강화 */
+        }
+        h1 {
+            text-align: center;
+            color: #334155; /* Tailwind Slate 700 */
+            font-size: 2em; /* 크기 증가 */
+            margin-bottom: 30px;
+        }
+        h2 {
+            color: #1e293b; /* Tailwind Slate 800 */
+            font-size: 1.6em;
+            margin-top: 35px;
+            margin-bottom: 20px;
+            border-bottom: 3px solid #e2e8f0; /* 테두리 강화 */
+            padding-bottom: 10px;
+        }
+        .vomit-card {
+            border: 1px solid #d1d5db; /* 테두리 약간 진하게 */
+            border-radius: 8px; /* 부드러운 모서리 */
+            margin-bottom: 20px;
+            transition: transform 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
+            overflow: hidden; /* 애니메이션을 위해 추가 */
+        }
+        .vomit-card:hover {
+            transform: translateY(-4px); /* 호버 시 약간 더 떠오르도록 */
+            box-shadow: 0 8px 25px rgba(0,0,0,0.12); /* 호버 시 그림자 강화 */
+        }
+        .vomit-card-header {
+            font-weight: 700; /* 글꼴 두껍게 */
+            font-size: 1.25em; /* 크기 약간 증가 */
+            padding: 18px 20px; /* 패딩 조정 */
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            position: relative; /* 버튼의 active 효과를 위해 */
+        }
+        .vomit-card-header-title {
+            flex-grow: 1;
+            margin-right: 15px;
+        }
+        .header-buttons {
+            display: flex;
+            align-items: center;
+        }
+        .toggle-button, .copy-all-button {
+            background-color: rgba(255,255,255,0.2); /* 버튼 배경 약간 투명하게 */
+            border: 1px solid transparent; /* 초기 테두리는 유지 */
+            padding: 6px 12px; /* 패딩 조정 */
+            border-radius: 6px;
+            font-size: 0.85em; /* 크기 약간 증가 */
+            font-weight: 500; /* 보통 두께 */
+            cursor: pointer;
+            transition: transform 0.15s ease, background-color 0.2s, border-color 0.2s, color 0.2s;
+            margin-left: 8px;
+            white-space: nowrap;
+        }
+        .toggle-button:hover, .copy-all-button:hover {
+            transform: scale(1.05); /* 호버 시 약간 확대 */
+            /* 호버 시 배경/테두리 색상은 JS에서 동적으로 적용된 색상을 따름 */
+        }
+        .toggle-button:active, .copy-all-button:active {
+            transform: scale(0.97); /* 클릭 시 약간 축소 */
+            filter: brightness(0.95); /* 클릭 시 약간 어둡게 */
+        }
+        .copy-all-button.copied {
+            /* JS에서 직접 스타일 변경 */
+        }
+
+        .vomit-card-content {
+            /* display: none; */ /* JS에서 초기 제어 */
+            max-height: 0;
+            opacity: 0;
+            overflow: hidden;
+            padding: 0 20px; /* 펼쳐졌을 때 좌우 패딩 */
+            font-size: 1em;
+            transition: max-height 0.4s ease-in-out, opacity 0.3s ease-in-out, padding 0.4s ease-in-out;
+            border-top: 1px solid transparent; /* 초기에는 안보이게, 펼쳐질 때 JS에서 설정 */
+        }
+        .vomit-card-content.open {
+            max-height: 1000px; /* 충분한 높이 */
+            opacity: 1;
+            padding: 20px; /* 펼쳐졌을 때 상하좌우 패딩 */
+            /* border-top-color는 JS에서 설정 */
+        }
+        .vomit-card-content p {
+            margin-bottom: 12px;
+        }
+        .vomit-card-content strong {
+            opacity: 1; /* 강조는 확실하게 */
+            font-weight: 600;
+        }
+        .vomit-card-content ul {
+            list-style-type: none;
+            padding-left: 0;
+        }
+        .vomit-card-content ul li {
+            padding-left: 1.3em;
+            text-indent: -1.3em;
+            margin-bottom: 6px;
+        }
+        .vomit-card-content ul li::before {
+            content: "–";
+            margin-right: 0.6em;
+            opacity: 0.8;
+        }
+        .table-container {
+            overflow-x: auto;
+            margin-top: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9em;
+        }
+        th, td {
+            border: 1px solid #CBD5E0; /* Tailwind CSS Gray 400 */
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #EDF2F7; /* Tailwind CSS Gray 200 */
+            font-weight: bold;
+        }
+        td ul {
+            margin: 0;
+            padding-left: 15px;
+        }
+        .notice {
+            background-color: #FFF9DB; /* Light yellow */
+            border: 1px solid #FEEBC8; /* Tailwind CSS Yellow 300 */
+            border-left: 5px solid #F6E05E; /* Tailwind CSS Yellow 500 */
+            padding: 15px;
+            margin-top: 30px;
+            border-radius: 6px;
+            font-size: 0.9em;
+        }
+        .notice strong {
+            color: #D69E2E; /* Tailwind CSS Yellow 700 */
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            font-size: 0.85em;
+            color: #718096; /* Tailwind CSS Gray 600 */
+            padding-bottom: 20px; /* 하단 패딩 추가 공간 확보 */
+        }
+        .credit-info {
+            margin-top: 15px;
+            font-size: 0.9em; /* 기존 푸터 텍스트보다 약간 크게 */
+            color: #4b5563; /* 약간 더 진한 회색 */
+        }
+
+        /* 색상별 카드 스타일 - 더 이상 사용하지 않음 */
+        /* .border-yellow { border-left-color: #F6E05E; } ... */ 
+
+        /* 위험도 테이블 색상 */
+        .risk-caution td:first-child { background-color: #FEFCBF; color: #744210; }
+        .risk-urgent td:first-child { background-color: #FED7D7; color: #9B2C2C; }
+        .risk-rare td:first-child { background-color: #E9D8FD; color: #553C9A; }
+
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <h1 id="main-title"></h1>
+
+        <section id="vomit-info-section">
+            <h2>색깔별 구토 정보</h2>
+            <!-- 카드 내용이 여기에 동적으로 추가됩니다 -->
+        </section>
+
+        <section id="risk-summary-section">
+            <h2>위험 신호 요약</h2>
+            <div class="table-container">
+                <table id="risk-summary-table">
+                    <thead>
+                        <tr>
+                            <th>위험도</th>
+                            <th>색상</th>
+                            <th>설명</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- 테이블 내용이 여기에 동적으로 추가됩니다 -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="important-notice-section" class="notice">
+            <h2>⚠️ 중요 안내사항</h2>
+            <div id="notice-content">
+                <!-- 안내 내용이 여기에 동적으로 추가됩니다 -->
+            </div>
+        </section>
+
+        <div class="footer">
+            <p>본 정보는 참고용이며, 정확한 진단은 수의사와 상담하세요.</p>
+            <p class="credit-info">© 2023 묘랑묘랑 안양본점</p>
+        </div>
+    </div>
+
+    <script>
+        // 1. 페이지 제목
+        const pageGlobalTitle = "🐱 고양이 토 색깔별 원인 · 대처법 · 주의사항";
+
+        // 2. 색깔별 구토 정보 데이터 (사용자 수정 내용 반영됨)
+        const vomitDetailsData = [
+            {
+                type: "🫧 흰색 거품 / 맑은 점액",
+                cause: "위산 과다, 공복토, 스트레스성 위염, 경미한 위장 점막 자극",
+                action: "- 공복 시간 최소화<br>- 위 보호용 사료나 처방식 고려<br>- 소량씩 자주 급여",
+                precaution: "- 반복되거나 무기력·식욕 저하 동반 시 수의사 상담 필요"
+            },
+            {
+                type: "🟡 노란색 (담즙)",
+                cause: "공복, 위염 초기, 담즙 역류, 드물게 췌장염 전조",
+                action: "- 공복 방지<br>- 위에 자극이 적은 식단 유지",
+                precaution: "- 반복 시 위염 또는 췌장염 가능성, 진료 권장"
+            },
+            {
+                type: "🐾 음식물 형태 (미소화 사료)",
+                cause: "과식, 급하게 먹음, 사료 변경 직후, 위장 운동 저하, 식도염",
+                action: "- 슬로우 피더 사용<br>- 소량씩 자주 급여<br>- 사료 종류나 알갱이 크기 조절",
+                precaution: "- 반복되거나 체중 감소 시 소화기 검사 필요"
+            },
+            {
+                type: "💧 맑은 액체 / 물 같은 토",
+                cause: "경미한 위장 자극, 위액 역류, 수분 섭취 직후 구토",
+                action: "- 수분 섭취량 및 시간 관찰<br>- 공복 시간 최소화<br>- 스트레스 요인 점검",
+                precaution: "- 무기력, 다음다뇨, 식욕 저하 동반 시 수의사 진료 필요"
+            },
+            {
+                type: "🟢 초록색 (풀/담즙 등)",
+                cause: "담즙 혼입, 식물 섭취, 드물게 간/췌장 질환 또는 중독 가능성",
+                action: "- 풀 섭취 여부 확인 및 제한<br>- 중독 의심 시 즉시 병원 내원",
+                precaution: "- 식욕저하·무기력 동반 시 간기능 검사 필요"
+            },
+            {
+                type: "🌸 분홍색 (소량의 피)",
+                cause: "위 점막 자극, 식도 미세 손상, 간식/사료 색소 혼동 가능",
+                action: "- 급여한 사료/간식 색상 확인<br>- 반복 시 진료 필요",
+                precaution: "- 색소와 혈액 구분 어려울 경우 병원 방문 권장"
+            },
+            {
+                type: "🟧 주황빛 (사료 색소 또는 경미한 담즙)",
+                cause: "사료나 간식의 색소 (예: 베타카로틴), 경미한 담즙 혼입",
+                action: "- 급여 중인 제품 성분 확인<br>- 구토가 지속되면 수의사 상담",
+                precaution: "- 대부분 무해하지만 드물게 간기능 관련 초기 신호일 수 있어 관찰 필요"
+            },
+            {
+                type: "🟤 갈색 (소화된 혈액 등)",
+                cause: "위장관 출혈, 오래된 혈액, 췌장 이상 가능성",
+                action: "- 즉시 동물병원 내원<br>- 혈액·영상 검사 필요 가능성 높음",
+                precaution: "- 응급 상황일 수 있어 지체 없이 병원 방문"
+            },
+            {
+                type: "🔴 붉은색 (선홍색 피)",
+                cause: "입안 상처, 식도 손상, 위장 출혈, 이물질 손상",
+                action: "- 입안 확인 후 즉시 병원 내원",
+                precaution: "- 출혈량 많거나 반복되면 응급 상황"
+            },
+            {
+                type: "⚫️ 검정색 (타르색 구토)",
+                cause: "소화된 혈액 (상부 위장관 출혈)",
+                action: "- 즉시 병원 내원 (응급)",
+                precaution: "- 매우 위험한 응급 신호, 즉시 진료 필요"
+            },
+            {
+                type: "🧶 이물 포함 (실, 플라스틱 등)",
+                cause: "이물 섭취 (실, 비닐, 장난감 등)",
+                action: "- 삼킨 물체가 의심되면 즉시 병원 내원 권장",
+                precaution: "- 장폐색, 천공 등 위험 가능성 있어 반드시 병원 진료"
+            },
+            {
+                type: "🟪 보라빛 / 자주빛",
+                cause: "드물게 색소가 함유된 간식/약물, 매우 드문 혈액 변성 관련 질환",
+                action: "- 최근 급여한 제품·약물 확인<br>- 원인 불명확하거나 증상 동반 시 병원 진료",
+                precaution: "- 일반적이지 않은 색상, 수의사 상담 권장"
+            }
+        ];
+
+        // 3. 위험 신호 요약 데이터
+        const riskInfoData = [
+            {
+                level: "⚠️ 경계 필요",
+                colors: "🟡 노란색, 🫧 흰색 거품/맑은 점액, 🐾 음식물 형태",
+                description: "일시적일 수 있으나 반복되면 검진 필요"
+            },
+            {
+                level: "🆘 즉시 병원 권장",
+                colors: "🟢 초록색 + 증상 동반<br>🟤 갈색<br>🔴 붉은색<br>⚫️ 검정색<br>🧶 이물 포함",
+                description: "반복되거나 이상 증상 동반 시 응급 가능성"
+            },
+            {
+                level: "❗ 희귀/불명확",
+                colors: "🟪 보라빛, 🟧 주황빛",
+                description: "색소 영향일 수 있으나 확신 어려우면 병원"
+            }
+        ];
+
+        // 4. 중요 안내사항 HTML 텍스트
+        const noticeHtmlText = 
+            "이 웹사이트에서 제공하는 정보는 일반적인 참고 자료이며,<br>"
+            + "전문적인 수의학적 조언을 대체할 수 없습니다.<br>"
+            + "고양이의 건강 문제에 대해서는 반드시 수의사와 상담하여<br>"
+            + "정확한 진단과 치료를 받으시기 바랍니다.<br>"
+            + "응급 상황으로 판단될 경우, 즉시 동물병원에 연락하거나 방문하세요.";
+
+        // --- Helper Functions --- 
+        function getCardColors(typeText) {
+            let bgColor = '#ECEFF1';     // 기본 카드 배경색 (Blue Gray 50)
+            let textColor = '#263238';     // 기본 카드 텍스트 색상 (Blue Gray 900)
+            let btnBorderColor = '#B0BEC5'; // 버튼 테두리 색상 (Blue Gray 300)
+            let btnHoverBgColor = '#CFD8DC';// 버튼 호버 시 배경색 (Blue Gray 200)
+            let contentBorderColor = '#B0BEC5'; // 내용 구분선 색상 (Blue Gray 300)
+
+            // 색상 팔레트: 전체적으로 채도/명도 조정하여 더 진하게
+            if (typeText.includes("노란색")) { bgColor = '#FFF9C4'; textColor = '#795548'; btnBorderColor = '#FBC02D'; btnHoverBgColor = '#FFF59D'; contentBorderColor = '#FBC02D';} // Yellow (진하게)
+            else if (typeText.includes("초록색")) { bgColor = '#C8E6C9'; textColor = '#2E7D32'; btnBorderColor = '#66BB6A'; btnHoverBgColor = '#A5D6A7'; contentBorderColor = '#66BB6A';} // Green (진하게)
+            else if (typeText.includes("흰색") || typeText.includes("맑은 점액")) { bgColor = '#F5F5F5'; textColor = '#424242'; btnBorderColor = '#BDBDBD'; btnHoverBgColor = '#EEEEEE'; contentBorderColor = '#BDBDBD';} // Gray (진하게)
+            else if (typeText.includes("갈색")) { bgColor = '#FFE0B2'; textColor = '#6D4C41'; btnBorderColor = '#FFB74D'; btnHoverBgColor = '#FFCC80'; contentBorderColor = '#FFB74D';} // Amber/Brown (진하게)
+            else if (typeText.includes("붉은색")) { bgColor = '#FFCDD2'; textColor = '#C62828'; btnBorderColor = '#E57373'; btnHoverBgColor = '#EF9A9A'; contentBorderColor = '#E57373';} // Red (진하게)
+            else if (typeText.includes("분홍색")) { bgColor = '#F8BBD0'; textColor = '#AD1457'; btnBorderColor = '#F06292'; btnHoverBgColor = '#F48FB1'; contentBorderColor = '#F06292';} // Pink (진하게)
+            else if (typeText.includes("검정색")) { bgColor = '#BDBDBD'; textColor = '#212121'; btnBorderColor = '#757575'; btnHoverBgColor = '#9E9E9E'; contentBorderColor = '#757575';} // Dark Gray/Black (진하게)
+            else if (typeText.includes("맑은 액체")) { bgColor = '#BBDEFB'; textColor = '#1565C0'; btnBorderColor = '#64B5F6'; btnHoverBgColor = '#90CAF9'; contentBorderColor = '#64B5F6';} // Blue (진하게)
+            else if (typeText.includes("음식물 형태")) { bgColor = '#FFECB3'; textColor = '#795548'; btnBorderColor = '#FFCA28'; btnHoverBgColor = '#FFE082'; contentBorderColor = '#FFCA28';} // Amber (진하게)
+            else if (typeText.includes("이물 포함")) { bgColor = '#FFE082'; textColor = '#6D4C41'; btnBorderColor = '#FFB74D'; btnHoverBgColor = '#FFCC80'; contentBorderColor = '#FFB74D'; } // Amber (더 진하게, 주의)
+            else if (typeText.includes("보라빛")) { bgColor = '#E1BEE7'; textColor = '#6A1B9A'; btnBorderColor = '#BA68C8'; btnHoverBgColor = '#CE93D8'; contentBorderColor = '#BA68C8';} // Purple (진하게)
+            else if (typeText.includes("주황빛")) { bgColor = '#FFCCBC'; textColor = '#D84315'; btnBorderColor = '#FF8A65'; btnHoverBgColor = '#FFAB91'; contentBorderColor = '#FF8A65';} // Orange (진하게)
+            
+            return { bgColor, textColor, btnBorderColor, btnHoverBgColor, contentBorderColor };
+        }
+        
+        function getRiskClass(level) {
+            if (level.includes("경계 필요")) return 'risk-caution';
+            if (level.includes("즉시 병원 권장")) return 'risk-urgent';
+            if (level.includes("희귀/불명확")) return 'risk-rare';
+            return '';
+        }
+
+        // --- UI Rendering Functions --- 
+        function renderVomitCards() {
+            const vomitInfoSection = document.getElementById('vomit-info-section');
+            if (!vomitInfoSection) return;
+
+            vomitDetailsData.forEach(info => {
+                const card = document.createElement('div');
+                card.className = 'vomit-card';
+                const colors = getCardColors(info.type);
+                card.style.backgroundColor = colors.bgColor;
+
+                const header = document.createElement('div');
+                header.className = 'vomit-card-header';
+                header.style.color = colors.textColor;
+
+                const headerTitle = document.createElement('span');
+                headerTitle.className = 'vomit-card-header-title';
+                headerTitle.innerHTML = info.type; 
+                
+                const headerButtons = document.createElement('div');
+                headerButtons.className = 'header-buttons';
+
+                const copyAllBtn = document.createElement('button');
+                copyAllBtn.className = 'copy-all-button';
+                copyAllBtn.textContent = '전체 복사';
+                copyAllBtn.style.color = colors.textColor;
+                copyAllBtn.style.borderColor = colors.btnBorderColor;
+                copyAllBtn.addEventListener('mouseover', () => { 
+                    copyAllBtn.style.backgroundColor = colors.btnHoverBgColor;
+                    copyAllBtn.style.borderColor = colors.textColor; // 호버 시 테두리도 텍스트 색상과 동일하게
+                });
+                copyAllBtn.addEventListener('mouseout', () => { 
+                    copyAllBtn.style.backgroundColor = 'rgba(255,255,255,0.2)'; // CSS 기본값으로
+                    copyAllBtn.style.borderColor = colors.btnBorderColor;
+                });
+
+                const toggleBtn = document.createElement('button');
+                toggleBtn.className = 'toggle-button';
+                toggleBtn.textContent = '더보기';
+                toggleBtn.style.color = colors.textColor;
+                toggleBtn.style.borderColor = colors.btnBorderColor;
+                toggleBtn.addEventListener('mouseover', () => { 
+                    toggleBtn.style.backgroundColor = colors.btnHoverBgColor; 
+                    toggleBtn.style.borderColor = colors.textColor;
+                });
+                toggleBtn.addEventListener('mouseout', () => { 
+                    toggleBtn.style.backgroundColor = 'rgba(255,255,255,0.2)';
+                    toggleBtn.style.borderColor = colors.btnBorderColor;
+                });
+
+                headerButtons.appendChild(copyAllBtn);
+                headerButtons.appendChild(toggleBtn);
+
+                header.appendChild(headerTitle);
+                header.appendChild(headerButtons);
+                
+                const content = document.createElement('div');
+                content.className = 'vomit-card-content';
+                content.style.color = colors.textColor; 
+                content.innerHTML = `
+                    <p><strong style="color:${colors.textColor};
+                                     opacity:${colors.textColor === '#212121' ? 0.85 : 1};">주요 원인:</strong><br>${info.cause}</p>
+                    <p><strong style="color:${colors.textColor};
+                                     opacity:${colors.textColor === '#212121' ? 0.85 : 1};">대처법:</strong><br>${info.action}</p>
+                    <p><strong style="color:${colors.textColor};
+                                     opacity:${colors.textColor === '#212121' ? 0.85 : 1};">주의사항:</strong><br>${info.precaution}</p>
+                `;
+                
+                card.appendChild(header);
+                card.appendChild(content);
+                vomitInfoSection.appendChild(card);
+
+                const toggleContent = () => {
+                    const isDisplayed = content.classList.contains('open');
+                    if (isDisplayed) {
+                        content.classList.remove('open');
+                        toggleBtn.textContent = '더보기';
+                    } else {
+                        content.classList.add('open');
+                        content.style.borderTopColor = colors.contentBorderColor; // 펼쳐질 때 구분선 색상 설정
+                        toggleBtn.textContent = '간략히';
+                    }
+                };
+
+                header.addEventListener('click', (e) => {
+                    if (e.target.closest('.header-buttons')) return;
+                    toggleContent();
+                });
+                
+                toggleBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    toggleContent();
+                });
+
+                copyAllBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const textToCopy = 
+`${info.type.replace(/<\/?b>/gi, '')} \n\n` +
+`주요 원인:\n${info.cause.replace(/<br\s*\/?>/gi, '\n')}\n\n` +
+`대처법:\n${info.action.replace(/<br\s*\/?>/gi, '\n')}\n\n` +
+`주의사항:\n${info.precaution.replace(/<br\s*\/?>/gi, '\n')}`;
+
+                    navigator.clipboard.writeText(textToCopy).then(() => {
+                        const originalText = copyAllBtn.textContent;
+                        copyAllBtn.textContent = '복사 완료!';
+                        copyAllBtn.style.backgroundColor = colors.btnHoverBgColor; 
+                        copyAllBtn.style.color = colors.bgColor; // 글자색 잠시 반전
+                        setTimeout(() => {
+                            copyAllBtn.textContent = originalText;
+                            copyAllBtn.style.backgroundColor = 'rgba(255,255,255,0.2)'; // 원래대로
+                            copyAllBtn.style.color = colors.textColor; // 원래대로
+                        }, 1500);
+                    }).catch(err => {
+                        console.error('전체 복사 실패:', err);
+                        alert('클립보드 전체 복사에 실패했습니다. 잠시 후 다시 시도해주세요.');
+                    });
+                });
+            });
+        }
+
+        function renderRiskTable() {
+            const riskTableBody = document.getElementById('risk-summary-table')?.getElementsByTagName('tbody')[0];
+            if (!riskTableBody) return;
+
+            riskInfoData.forEach(risk => {
+                const row = riskTableBody.insertRow();
+                row.className = getRiskClass(risk.level);
+                row.insertCell().innerHTML = risk.level;
+                row.insertCell().innerHTML = risk.colors; 
+                row.insertCell().innerHTML = risk.description;
+            });
+        }
+
+        function renderNotice() {
+            const noticeContent = document.getElementById('notice-content');
+            if (noticeContent) {
+                noticeContent.innerHTML = noticeHtmlText;
+            }
+        }
+
+        // --- Initialize Page --- 
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('main-title').textContent = pageGlobalTitle;
+            renderVomitCards();
+            renderRiskTable();
+            renderNotice();
+        });
+    </script>
+</body>
+</html>

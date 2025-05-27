@@ -1967,9 +1967,123 @@
 			.discount-amount::before {
 				display: none !important; 
 			}
+
+			/* 고양이 백과사전 섹션 스타일 */
+			.cat-encyclopedia-section {
+				margin-top: 20px;
+				margin-bottom: 20px;
+				padding: 10px; /* 패딩 수정 */
+				background-color: #f9f9f9;
+				border-radius: 8px;
+				border: 1px solid var(--border-color);
+			}
+
+			/* 제목 토글 영역 스타일 수정 */
+			.encyclopedia-toggle {
+				position: relative; /* 화살표의 absolute 기준점 */
+				padding: 8px 35px 8px 10px; /* 상하 패딩 수정, 오른쪽 패딩은 화살표 공간 확보 */
+				cursor: pointer;
+				user-select: none;
+				text-align: center; /* 내부 아이콘+텍스트 중앙 정렬 */
+			}
+
+			.encyclopedia-toggle .fas.fa-book { /* 책 아이콘 */
+				margin-right: 8px; /* 텍스트와의 간격 */
+				font-size: 0.85em; /* 아이콘 크기 약간 축소 */
+				opacity: 0.7;
+				color: var(--text-color);
+				vertical-align: middle;
+			}
+
+			.encyclopedia-toggle .actual-title-text { /* 실제 제목 텍스트 */
+				font-size: var(--font-size-sm); /* 글자 크기 var(--font-size-sm)으로 수정 */
+				font-weight: var(--font-semibold);
+				color: var(--text-color);
+				vertical-align: middle;
+			}
+
+			.encyclopedia-toggle .toggle-arrow { /* 화살표 아이콘 */
+				position: absolute;
+				right: 10px;
+				top: 50%;
+				transform: translateY(-50%);
+				font-size: 0.8em;
+				transition: transform 0.3s ease;
+			}
+
+			.encyclopedia-toggle .toggle-arrow.open {
+				transform: translateY(-50%) rotate(180deg);
+			}
+
+			/* 링크 버튼 그룹 스타일 수정 */
+			.encyclopedia-links {
+				display: none; /* 기본 숨김 */
+				padding-top: 10px; /* 패딩 수정 */
+				margin-top: 8px;  /* 마진 수정 */
+				border-top: 1px solid var(--border-color);
+			}
+
+			.encyclopedia-links.show {
+				display: flex; /* 보이게 될 때 flex로 변경 */
+				justify-content: center; /* 버튼들을 중앙 정렬 */
+				align-items: center; /* 수직 중앙 정렬 (버튼 높이 다를 경우) */
+				flex-wrap: wrap; /* 화면 작으면 줄바꿈 (필요시) */
+				gap: 10px; /* 버튼 사이 간격 */
+			}
+
+			/* 개별 링크 버튼 스타일 수정 */
+			.encyclopedia-link-button {
+				flex-grow: 1; /* 가능한 공간을 균등하게 차지 */
+				flex-basis: 0; /* flex-grow와 함께 사용하여 너비 유연하게 */
+				min-width: 120px; /* 버튼이 너무 작아지는 것 방지 */
+				padding: 8px 15px; /* 상하8, 좌우15 (중앙 정렬이므로 좌우 동일) */
+				margin-bottom: 8px; /* flex-wrap으로 줄바꿈 시 하단 간격 */
+				border-radius: 8px;
+				background-color: white;
+				border: 1px solid var(--primary-color);
+				color: var(--primary-color);
+				text-decoration: none;
+				font-size: var(--font-size-sm);
+				font-weight: var(--font-medium);
+				transition: background-color 0.2s ease, color 0.2s ease;
+				text-align: center; /* 텍스트 중앙 정렬 */
+			}
+
+			.encyclopedia-link-button:last-child {
+				/* margin-bottom: 0; -> gap 사용시 불필요 할 수 있음, 확인 후 조정 */
+			}
+
+			.encyclopedia-link-button:hover {
+				background-color: var(--primary-color);
+				color: white;
+			}
+
+			/* 모바일 대응 스타일 수정 */
+			@media screen and (max-width: 768px) {
+				.encyclopedia-toggle {
+					font-size: 1rem;
+					padding-right: 30px; /* 화살표 공간 유지 */
+				}
+				.encyclopedia-links.show {
+					flex-direction: column; /* 모바일에선 버튼 세로로 쌓기 */
+					align-items: stretch; /* 버튼들 가로로 꽉 차게 */
+				}
+				.encyclopedia-link-button {
+					font-size: var(--font-size-xs);
+					padding: 10px 15px; /* 모바일 버튼 패딩 조정 */
+					flex-grow: 0; /* 세로 쌓기이므로 grow 불필요 */
+					min-width: unset; /* 세로 쌓기이므로 min-width 불필요 */
+					/* margin-bottom은 gap으로 인해 자동으로 적용되거나, 필요시 여기서 개별적으로도 마지막 요소 제외하고 줄 수 있음. */
+				}
+				.encyclopedia-link-button:not(:last-child) {
+    				margin-bottom: 8px; /* 모바일 세로 정렬 시 버튼 간 간격 */
+				}
+				.encyclopedia-link-button:last-child {
+    				margin-bottom: 0;
+				}
+			}
 		</style>
 		<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-		<script src="https://developers.kakao.com/sdk/js/kakao.js"></script>
 		<script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/js/all.min.js"></script>
 		<script>
@@ -1986,123 +2100,6 @@
 					}
 				}
 			};
-
-			// 카카오 초기화
-			Kakao.init('YOUR_JAVASCRIPT_KEY'); // 여기에 JavaScript 키를 넣어주세요
-
-			function shareToKakao() {
-				// 현재 선택된 값들 가져오기
-				const roomTypeText = DOM.room.type.find("option:selected").text();
-				const catCount = DOM.room.catCount.val();
-				const checkInDate = `${DOM.dateInputs.checkIn.year.val()}-${DOM.dateInputs.checkIn.month.val()}-${DOM.dateInputs.checkIn.day.val()}`;
-				const checkOutDate = `${DOM.dateInputs.checkOut.year.val()}-${DOM.dateInputs.checkOut.month.val()}-${DOM.dateInputs.checkOut.day.val()}`;
-				const finalPrice = DOM.price.final.text();
-				const stayDuration = DOM.stay.duration.text();
-
-				Kakao.Link.sendDefault({
-					objectType: 'feed',
-					content: {
-						title: '묘랑묘랑 안양본점 숙박 예약 정보',
-						description: 
-							`🏠 객실: ${roomTypeText}\n` +
-							`🐱 고양이: ${catCount}마리\n` +
-							`📅 체크인: ${checkInDate}\n` +
-							`📅 체크아웃: ${checkOutDate}\n` +
-							`⏰ 이용일수: ${stayDuration}\n` +
-							`💰 총 금액: ${finalPrice}`,
-						imageUrl: 'https://your-domain.com/share-image.jpg',
-						link: {
-							mobileWebUrl: window.location.href,
-							webUrl: window.location.href,
-						},
-					},
-					buttons: [
-						{
-							title: '요금 계산기로 이동',
-							link: {
-								mobileWebUrl: window.location.href,
-								webUrl: window.location.href,
-							},
-						},
-					],
-				});
-			}
-
-			function copyResult() {
-				const roomTypeText = DOM.room.type.find("option:selected").text();
-				const catCount = DOM.room.catCount.val();
-				const checkInDate = `${DOM.dateInputs.checkIn.year.val()}년 ${DOM.dateInputs.checkIn.month.val()}월 ${DOM.dateInputs.checkIn.day.val()}일 ${DOM.dateInputs.checkIn.hour.val()}시`;
-				const checkOutDate = `${DOM.dateInputs.checkOut.year.val()}년 ${DOM.dateInputs.checkOut.month.val()}월 ${DOM.dateInputs.checkOut.day.val()}일 ${DOM.dateInputs.checkOut.hour.val()}시`;
-				const roomPrice = DOM.price.room.text();
-				const stayDuration = DOM.stay.duration.text();
-				const discountRate = DOM.price.discount.rate.text();
-				const finalPrice = DOM.price.final.text();
-
-				// 늦은 입실/빠른 퇴실 여부 확인
-				const timeNotice = [];
-				if(parseInt(DOM.dateInputs.checkIn.hour.val()) >= CONFIG.TIME.CHECK_IN.LATE_CHECK_IN_HOUR) {
-					timeNotice.push("늦은 입실(-0.5일)");
-				}
-				if(parseInt(DOM.dateInputs.checkOut.hour.val()) <= CONFIG.TIME.CHECK_OUT.EARLY_CHECK_OUT_HOUR) {
-					timeNotice.push("빠른 퇴실(-0.5일)");
-				}
-				const timeNoticeText = timeNotice.length > 0 ? `\n⚠️ ${timeNotice.join(" | ")}` : "";
-
-				// 할인 정보 텍스트 (할인이 있을 때만 포함)
-				let discountText = "";
-				if (discountRate !== "0%") {
-					const subtotalPrice = DOM.price.subtotal.text();
-					const discountAmount = DOM.price.discount.amount.text();
-					discountText = `\n📊 할인 전 금액: ${subtotalPrice}\n💝 할인율: ${discountRate}\n💫 할인금액: ${discountAmount}`;
-				}
-
-				const resultText = 
-					`[묘랑묘랑 안양본점 숙박 예약 정보]\n\n` +
-					`🏠 객실: ${roomTypeText}\n` +
-					`🐱 고양이: ${catCount}마리\n` +
-					`💵 객실 요금: ${roomPrice}\n` +
-					`📅 체크인: ${checkInDate}\n` +
-					`📅 체크아웃: ${checkOutDate}\n` +
-					`⏰ 이용일수: ${stayDuration}${timeNoticeText}${discountText}\n` +
-					`💰 최종 금액: ${finalPrice}`;
-
-				navigator.clipboard.writeText(resultText).then(() => {
-					const feedback = $(".copy-feedback");
-					feedback.addClass("show");
-					setTimeout(() => feedback.removeClass("show"), 2000);
-				});
-			}
-
-			function saveAsImage() {
-				// 두 테이블을 감싸는 임시 div 생성
-				const wrapper = document.createElement('div');
-				wrapper.style.background = 'white';
-				wrapper.style.padding = '20px';
-				wrapper.style.borderRadius = '12px';
-				
-				// 기존 테이블들을 복제
-				const priceOutput = document.querySelector('.tblPriceOutput').cloneNode(true);
-				const finalPrice = document.querySelector('.tblFinalPrice').cloneNode(true);
-				
-				// 테이블 간격 조정
-				priceOutput.style.marginBottom = '20px';
-				
-				// wrapper에 테이블들 추가
-				wrapper.appendChild(priceOutput);
-				wrapper.appendChild(finalPrice);
-				document.body.appendChild(wrapper);
-				
-				// 이미지 생성
-				html2canvas(wrapper).then(canvas => {
-					const link = document.createElement('a');
-					link.download = '묘랑묘랑_예약정보.png';
-					link.href = canvas.toDataURL();
-					link.click();
-					
-					// 임시 wrapper 제거
-					document.body.removeChild(wrapper);
-				});
-			}
 
 			// DOM 요소 참조를 전역으로 이동
 			window.DOM = {
@@ -2138,41 +2135,6 @@
 				}
 			};
 
-			// UI 관리를 위한 객체
-			const UIManager = {
-				updateCatCountStyle: function() {
-					const catCount = DOM.room.catCount;
-					const selectedCats = parseInt(catCount.val());
-					
-					// 이전 클래스 제거
-					catCount.removeClass("cats-1 cats-2 cats-3 cats-4 cats-5 cats-6");
-					// 새 클래스 추가
-					catCount.addClass(`cats-${selectedCats}`);
-				},
-				
-				updateTimeStyle: function() {
-					const inHour = parseInt(DOM.dateInputs.checkIn.hour.val());
-					const outHour = parseInt(DOM.dateInputs.checkOut.hour.val());
-					
-					// 입실 시간 스타일
-					DOM.dateInputs.checkIn.hour.removeClass("late-check");
-					if (inHour >= 18) {
-						DOM.dateInputs.checkIn.hour.addClass("late-check");
-					}
-					
-					// 퇴실 시간 스타일
-					DOM.dateInputs.checkOut.hour.removeClass("early-check");
-					if (outHour <= 12) {
-						DOM.dateInputs.checkOut.hour.addClass("early-check");
-					}
-				},
-				
-				animatePriceChange: function(element) {
-					element.addClass("price-change"); // CSS에 정의된 'price-change' 클래스 사용
-					setTimeout(() => element.removeClass("price-change"), 600); // 애니메이션 지속시간(0.6s)과 일치
-				}
-			};
-
 			// 초기화 및 이벤트 설정
 			$(document).ready(function() {
 				// DOM 요소 초기화
@@ -2202,18 +2164,6 @@
 				
 				// 초기 계산 실행
 				calculateAndUpdatePrice();
-
-				// 고양이 애니메이션 설정
-				setInterval(function() {
-					const peekCat = $(".peek-cat");
-					peekCat.css("animation", "none");
-					peekCat[0].offsetHeight; // 리플로우 강제
-					peekCat.css("animation", "");
-					
-					// 랜덤 위치 설정 (오른쪽 20% ~ 80% 사이)
-					const randomRight = Math.floor(Math.random() * 60) + 20;
-					peekCat.css("right", randomRight + "%");
-				}, 10000); // 10초마다 반복
 			});
 
 			function setupEventListeners() {
@@ -2243,9 +2193,6 @@
 					const roomName = $(this).find("option:selected").text();
 					$(".room-type-text").text(roomName).removeClass("family premier deluxe standard").addClass(roomClass);
 					
-					// 묘 수 스타일 업데이트
-					UIManager.updateCatCountStyle();
-					
 					// 가격 재계산
 					calculateAndUpdatePrice();
 					
@@ -2256,7 +2203,6 @@
 
 				// 묘 수 변경
 				DOM.room.catCount.off("change").on("change", function() {
-					UIManager.updateCatCountStyle();
 					calculateAndUpdatePrice();
 				});
 
@@ -2348,7 +2294,7 @@
 				otherInputs.forEach(input => {
 					input.off("change").on("change", function() {
 						if (this.id.includes("Hour")) {
-							UIManager.updateTimeStyle();
+							// UIManager.updateTimeStyle();
 						}
 						// 퇴실일 변경 시에도 유효성 검사 (예: 입실일보다 뒤인지)
 						// calculateAndUpdatePrice 이전에 validateAndAdjustCheckoutDate() 호출도 고려
@@ -2551,7 +2497,7 @@
 				$(".room-type-text").text(roomName).removeClass("family premier deluxe standard").addClass('room-type-text ' + roomClass);
 
 				// 시간 스타일 적용
-				UIManager.updateTimeStyle();
+				// UIManager.updateTimeStyle();
 			}
 
 			function calculateAndUpdatePrice() {
@@ -2670,16 +2616,16 @@
 						DOM.price.discount.amount.text(discountAmount.toLocaleString() + "원");
 						// 최종 금액 계산
 						const final = subtotal - discountAmount;
-						DOM.price.final.text(final.toLocaleString() + "원");
+						DOM.price.final.html(`<span class="main-price">${final.toLocaleString()}원</span>`); // .text()에서 .html()로 변경하고 span 태그 추가
 					} else {
 						discountRows.hide();
 						// 할인이 없을 때는 subtotal이 최종 금액
-						DOM.price.final.text(subtotal.toLocaleString() + "원");
+						DOM.price.final.html(`<span class="main-price">${subtotal.toLocaleString()}원</span>`); // .text()에서 .html()로 변경하고 span 태그 추가
 					}
 					
 					// UI 업데이트
-					UIManager.updateTimeStyle();
-					UIManager.animatePriceChange(DOM.price.final);
+					// UIManager.updateTimeStyle(); // 이 호출도 이전 단계에서 삭제되었어야 함.
+					// UIManager.animatePriceChange(DOM.price.final);
 				} catch (error) {
 					console.error("가격 계산 중 오류 발생:", error);
 					DOM.price.room.html('<span class="main-price">0원</span><span class="price-notice">0원, 기준 1마리</span>');
@@ -2689,6 +2635,107 @@
 					DOM.price.discount.amount.text("0원");
 					DOM.price.final.text("0원");
 				}
+			}
+
+			document.addEventListener('DOMContentLoaded', function() {
+				// --- 기존 $(document).ready() 코드 시작 ---
+				// if (window.jQuery) { $(document).ready(function() { ... }); }
+				// --- 기존 $(document).ready() 코드 끝 ---
+
+				const encyclopediaToggle = document.getElementById('encyclopediaToggleTrigger');
+				const encyclopediaLinks = document.getElementById('encyclopediaLinkGroup');
+				const toggleArrow = encyclopediaToggle ? encyclopediaToggle.querySelector('.toggle-arrow') : null;
+
+				if (encyclopediaToggle && encyclopediaLinks && toggleArrow) {
+					encyclopediaToggle.addEventListener('click', function() {
+						encyclopediaLinks.classList.toggle('show');
+						toggleArrow.classList.toggle('open');
+						// Font Awesome 아이콘 클래스 직접 변경 (회전은 CSS로 처리하므로 open 클래스만 토글)
+						if (encyclopediaLinks.classList.contains('show')) {
+							toggleArrow.classList.remove('fa-chevron-down');
+							toggleArrow.classList.add('fa-chevron-up');
+						} else {
+							toggleArrow.classList.remove('fa-chevron-up');
+							toggleArrow.classList.add('fa-chevron-down');
+						}
+					});
+				}
+			});
+
+			function copyResult() {
+				const roomTypeText = DOM.room.type.find("option:selected").text();
+				const catCount = DOM.room.catCount.val();
+				const checkInDate = `${DOM.dateInputs.checkIn.year.val()}년 ${DOM.dateInputs.checkIn.month.val()}월 ${DOM.dateInputs.checkIn.day.val()}일 ${DOM.dateInputs.checkIn.hour.val()}시`;
+				const checkOutDate = `${DOM.dateInputs.checkOut.year.val()}년 ${DOM.dateInputs.checkOut.month.val()}월 ${DOM.dateInputs.checkOut.day.val()}일 ${DOM.dateInputs.checkOut.hour.val()}시`;
+				const roomPrice = DOM.price.room.text();
+				const stayDuration = DOM.stay.duration.text();
+				const discountRate = DOM.price.discount.rate.text();
+				const finalPrice = DOM.price.final.text();
+
+				// 늦은 입실/빠른 퇴실 여부 확인
+				const timeNotice = [];
+				if(parseInt(DOM.dateInputs.checkIn.hour.val()) >= CONFIG.TIME.CHECK_IN.LATE_CHECK_IN_HOUR) {
+					timeNotice.push("늦은 입실(-0.5일)");
+				}
+				if(parseInt(DOM.dateInputs.checkOut.hour.val()) <= CONFIG.TIME.CHECK_OUT.EARLY_CHECK_OUT_HOUR) {
+					timeNotice.push("빠른 퇴실(-0.5일)");
+				}
+				const timeNoticeText = timeNotice.length > 0 ? `\n⚠️ ${timeNotice.join(" | ")}` : "";
+
+				// 할인 정보 텍스트 (할인이 있을 때만 포함)
+				let discountText = "";
+				if (discountRate !== "0%") {
+					const subtotalPrice = DOM.price.subtotal.text();
+					const discountAmount = DOM.price.discount.amount.text();
+					discountText = `\n📊 할인 전 금액: ${subtotalPrice}\n💝 할인율: ${discountRate}\n💫 할인금액: ${discountAmount}`;
+				}
+
+				const resultText = 
+					`[묘랑묘랑 안양본점 숙박 예약 정보]\n\n` +
+					`🏠 객실: ${roomTypeText}\n` +
+					`🐱 고양이: ${catCount}마리\n` +
+					`💵 객실 요금: ${roomPrice}\n` +
+					`📅 체크인: ${checkInDate}\n` +
+					`📅 체크아웃: ${checkOutDate}\n` +
+					`⏰ 이용일수: ${stayDuration}${timeNoticeText}${discountText}\n` +
+					`💰 최종 금액: ${finalPrice}`;
+
+				navigator.clipboard.writeText(resultText).then(() => {
+					const feedback = $(".copy-feedback");
+					feedback.addClass("show");
+					setTimeout(() => feedback.removeClass("show"), 2000);
+				});
+			}
+
+			function saveAsImage() {
+				// 두 테이블을 감싸는 임시 div 생성
+				const wrapper = document.createElement('div');
+				wrapper.style.background = 'white';
+				wrapper.style.padding = '20px';
+				wrapper.style.borderRadius = '12px';
+				
+				// 기존 테이블들을 복제
+				const priceOutput = document.querySelector('.tblPriceOutput').cloneNode(true);
+				const finalPrice = document.querySelector('.tblFinalPrice').cloneNode(true);
+				
+				// 테이블 간격 조정
+				priceOutput.style.marginBottom = '20px';
+				
+				// wrapper에 테이블들 추가
+				wrapper.appendChild(priceOutput);
+				wrapper.appendChild(finalPrice);
+				document.body.appendChild(wrapper);
+				
+				// 이미지 생성
+				html2canvas(wrapper).then(canvas => {
+					const link = document.createElement('a');
+					link.download = '묘랑묘랑_예약정보.png';
+					link.href = canvas.toDataURL();
+					link.click();
+					
+					// 임시 wrapper 제거
+					document.body.removeChild(wrapper);
+				});
 			}
 		</script>
 	</head>
@@ -2731,6 +2778,20 @@
 					오시는 길
 				</button>
 			</div>
+
+			<!-- 고양이 백과사전 섹션 시작 -->
+			<div class="cat-encyclopedia-section">
+				<div class="encyclopedia-toggle" id="encyclopediaToggleTrigger">
+					<i class="fas fa-book"></i> <span class="actual-title-text">고양이 백과사전</span>
+					<span class="toggle-arrow fas fa-chevron-down"></span>
+				</div>
+				<div class="encyclopedia-links" id="encyclopediaLinkGroup">
+					<a href="https://cathotelanyang.github.io/calculator/catVaccination.html" target="_blank" class="encyclopedia-link-button">고양이 백신 정보</a>
+					<a href="https://cathotelanyang.github.io/calculator/catPoo.html" target="_blank" class="encyclopedia-link-button">고양이 응가 정보</a>
+					<a href="https://cathotelanyang.github.io/calculator/catVomit.html" target="_blank" class="encyclopedia-link-button">고양이 구토 정보</a>
+				</div>
+			</div>
+			<!-- 고양이 백과사전 섹션 끝 -->
 			
 			<!-- 두 번째 구분선 -->
 			<div class="section-divider"></div>

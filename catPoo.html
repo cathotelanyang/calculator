@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>고양이 변 상태별 정보</title>
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            margin: 0;
+            padding: 15px;
+            background-color: #f0f2f5; 
+            color: #333;
+            line-height: 1.7;
+            word-break: keep-all; 
+            overflow-wrap: break-word; 
+        }
+        .container {
+            max-width: 850px; 
+            margin: 20px auto; 
+            background-color: #ffffff;
+            padding: 25px;
+            border-radius: 10px; 
+            box-shadow: 0 5px 20px rgba(0,0,0,0.08); 
+        }
+        h1 {
+            text-align: center;
+            color: #334155; 
+            font-size: 2em; 
+            margin-bottom: 30px;
+        }
+        h2 {
+            color: #1e293b; 
+            font-size: 1.6em;
+            margin-top: 35px;
+            margin-bottom: 20px;
+            border-bottom: 3px solid #e2e8f0; 
+            padding-bottom: 10px;
+        }
+        .vomit-card {
+            border: 1px solid #d1d5db; 
+            border-radius: 8px; 
+            margin-bottom: 20px;
+            transition: transform 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
+            overflow: hidden; 
+        }
+        .vomit-card:hover {
+            transform: translateY(-4px); 
+            box-shadow: 0 8px 25px rgba(0,0,0,0.12); 
+        }
+        .vomit-card-header {
+            font-weight: 700; 
+            font-size: 1.25em; 
+            padding: 18px 20px; 
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            position: relative; 
+            flex-wrap: wrap; 
+        }
+        .vomit-card-header-title {
+            flex-grow: 1;
+            margin-right: 15px;
+        }
+        .header-buttons {
+            display: flex;
+            align-items: center;
+        }
+        .toggle-button, .copy-all-button {
+            background-color: rgba(255,255,255,0.2); 
+            border: 1px solid transparent; 
+            padding: 6px 12px; 
+            border-radius: 6px;
+            font-size: 0.85em; 
+            font-weight: 500; 
+            cursor: pointer;
+            transition: transform 0.15s ease, background-color 0.2s, border-color 0.2s, color 0.2s;
+            margin-left: 8px;
+            white-space: nowrap;
+        }
+        .toggle-button:hover, .copy-all-button:hover {
+            transform: scale(1.05); 
+        }
+        .toggle-button:active, .copy-all-button:active {
+            transform: scale(0.97); 
+            filter: brightness(0.95); 
+        }
+        .copy-all-button.copied {
+        }
+        .vomit-card-content {
+            max-height: 0;
+            opacity: 0;
+            overflow: hidden;
+            padding: 0 20px; 
+            font-size: 1em;
+            transition: max-height 0.4s ease-in-out, opacity 0.3s ease-in-out, padding 0.4s ease-in-out;
+            border-top: 1px solid transparent; 
+            overflow-wrap: break-word; 
+        }
+        .vomit-card-content.open {
+            max-height: 1000px; 
+            opacity: 1;
+            padding: 20px; 
+        }
+        .vomit-card-content p {
+            margin-bottom: 12px;
+            overflow-wrap: break-word; 
+        }
+        .vomit-card-content strong {
+            opacity: 1; 
+            font-weight: 600;
+        }
+        .vomit-card-content ul {
+            list-style-type: none;
+            padding-left: 0;
+        }
+        .vomit-card-content ul li {
+            padding-left: 1.3em;
+            text-indent: -1.3em;
+            margin-bottom: 6px;
+        }
+        .vomit-card-content ul li::before {
+            content: "–";
+            margin-right: 0.6em;
+            opacity: 0.8;
+        }
+        .table-container {
+            overflow-x: auto;
+            margin-top: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9em;
+        }
+        th, td {
+            border: 1px solid #CBD5E0; 
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #EDF2F7; 
+            font-weight: bold;
+        }
+        td ul {
+            margin: 0;
+            padding-left: 15px;
+        }
+        .notice {
+            background-color: #FFF9DB; 
+            border: 1px solid #FEEBC8; 
+            border-left: 5px solid #F6E05E; 
+            padding: 15px;
+            margin-top: 30px;
+            border-radius: 6px;
+            font-size: 0.9em;
+        }
+        .notice strong {
+            color: #D69E2E; 
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            font-size: 0.85em;
+            color: #718096; 
+            padding-bottom: 20px; 
+        }
+        .credit-info {
+            margin-top: 15px;
+            font-size: 0.9em; 
+            color: #4b5563; 
+        }
+        .risk-caution td:first-child { background-color: #FEFCBF; color: #744210; }
+        .risk-urgent td:first-child { background-color: #FED7D7; color: #9B2C2C; }
+        .risk-rare td:first-child { background-color: #E9D8FD; color: #553C9A; }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <h1 id="main-title"></h1>
+
+        <section id="poo-info-section">
+            <h2>형태/색깔별 변 정보</h2>
+        </section>
+
+        <section id="poo-risk-summary-section">
+            <h2>위험 신호 요약</h2>
+            <div class="table-container">
+                <table id="poo-risk-summary-table">
+                    <thead>
+                        <tr>
+                            <th>위험도</th>
+                            <th>상태</th>
+                            <th>설명</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="important-notice-section" class="notice">
+            <h2>⚠️ 중요 안내사항</h2>
+            <div id="notice-content">
+            </div>
+        </section>
+
+        <div class="footer">
+            <p>본 정보는 참고용이며, 정확한 진단은 수의사와 상담하세요.</p>
+            <p class="credit-info">© 2023 묘랑묘랑 안양본점</p>
+        </div>
+    </div>
+
+    <script>
+        const pageGlobalTitle = "🐾 고양이 변 상태별 원인 · 대처법 · 주의사항";
+
+        const pooDetailsData = [
+            {
+                type: "🟤 갈색 (정상)",
+                cause: "건강한 소화 활동의 결과로, 일반적인 사료 섭취 시 나타나는 색상입니다.",
+                action: "별도의 조치 필요 없음.",
+                precaution: "색상 변화가 갑작스럽거나 지속되면 수의사 상담 권장."
+            },
+            {
+                type: "🟡 노란색 / 연한 갈색",
+                cause: "소화 불량, 간 또는 담도계 문제, 장내 기생충 감염 가능성.",
+                action: "식단 확인 및 조정, 수의사 상담을 통한 정확한 진단 필요.",
+                precaution: "지속되거나 다른 증상 동반 시 즉시 수의사 상담."
+            },
+            {
+                type: "🟢 초록색",
+                cause: "잔디나 식물 섭취, 장내 세균 감염, 담즙 과다 분비 등.",
+                action: "식물 섭취 여부 확인, 감염 의심 시 수의사 상담.",
+                precaution: "지속되거나 다른 증상 동반 시 즉시 수의사 상담."
+            },
+            {
+                type: "🟠 주황색",
+                cause: "간 또는 담도계 문제, 식단 변화.",
+                action: "식단 확인 및 조정, 수의사 상담을 통한 정확한 진단 필요.",
+                precaution: "지속되거나 다른 증상 동반 시 즉시 수의사 상담."
+            },
+            {
+                type: "🔴 붉은색 (선홍색 혈변)",
+                cause: "하부 위장관 출혈, 직장 또는 항문 부위의 자극이나 손상.",
+                action: "즉시 수의사 상담 및 진단 필요.",
+                precaution: "출혈량이 많거나 반복되면 응급 상황일 수 있음."
+            },
+            {
+                type: "⚫️ 검정색 (타르색 변)",
+                cause: "상부 위장관 출혈로 인한 소화된 혈액.",
+                action: "즉시 수의사 상담 및 진단 필요.",
+                precaution: "응급 상황으로 간주되며, 지체 없이 수의사 상담 필요."
+            },
+            {
+                type: "⚪️ 흰색 / 회색",
+                cause: "담즙 분비 부족, 간 또는 췌장 기능 이상.",
+                action: "즉시 수의사 상담 및 진단 필요.",
+                precaution: "응급 상황으로 간주되며, 지체 없이 수의사 상담 필요."
+            },
+            {
+                type: "⚪️ 흰색 반점 포함",
+                cause: "기생충 감염(예: 촌충).",
+                action: "수의사 상담을 통한 정확한 진단 및 구충 치료 필요.",
+                precaution: "다른 증상 동반 시 즉시 수의사 상담."
+            },
+            {
+                type: "💧 점액 섞인 변",
+                cause: "장내 염증, 기생충 감염, 식이 알레르기 등.",
+                action: "식단 확인 및 조정, 수의사 상담을 통한 정확한 진단 필요.",
+                precaution: "지속되거나 다른 증상 동반 시 즉시 수의사 상담."
+            },
+            {
+                type: "🪶 털 섞인 변",
+                cause: "과도한 그루밍으로 인한 털 삼킴.",
+                action: "정기적인 빗질을 통한 털 제거, 헤어볼 방지용 사료 급여.",
+                precaution: "지속되거나 구토 동반 시 수의사 상담."
+            }
+        ];
+
+        const pooRiskInfoData = [
+            {
+                level: "✅ 정상",
+                states: "🟤 갈색",
+                description: "정상적인 고양이 대변의 색. 고양이의 식단과 건강 상태가 양호함을 의미합니다."
+            },
+            {
+                level: "⚠️ 주의 관찰",
+                states: "🟡 노란색/연한 갈색, 🟢 초록색, 🟠 주황색, 💧 점액 섞인 변, 🪶 털 섞인 변",
+                description: "일시적인 위장 문제, 식이 변화, 스트레스 등으로 인해 발생할 수 있습니다.<br>▶ 증상이 반복되거나 식욕 저하, 무기력 등이 동반되면 검진 필요합니다."
+            },
+            {
+                level: "🆘 즉시 병원 권장",
+                states: "🔴 붉은색, ⚫️ 검정색, ⚪️ 흰색/회색, ⚪️ 흰색 반점 포함",
+                description: "출혈, 지방 흡수 장애, 간·췌장 질환 등 심각한 질환의 징후일 수 있습니다.<br>▶ 가능한 빨리 수의사의 진료를 받아야 합니다."
+            }
+        ];
+
+        const noticeHtmlText = 
+            "<strong>⚠️ 정보의 한계</strong><br>"
+            + "* 색상이나 형태만으로는 정확한 진단이 불가능합니다. (예: 노란색 변이 꼭 간 문제라고 단정할 수 없음. 식이성 변화로도 발생 가능)<br>"
+            + "* 반드시 기타 증상(무기력, 구토, 식욕 저하 등)과 함께 고려해야 합니다.<br>"
+            + "* 최종적인 진단은 <strong>수의사의 임상 진료와 검사(대변 검사, 혈액 검사 등)</strong>를 통해 이루어져야 합니다.<br><br>"
+            + "<strong>중요 안내:</strong> 이 정보는 일반적인 참고 자료이며, 전문적인 수의학적 조언을 대체할 수 없습니다. 고양이의 건강 문제에 대해서는 반드시 수의사와 상담하여 정확한 진단과 치료를 받으시기 바랍니다. 응급 상황으로 판단될 경우, 즉시 동물병원에 연락하거나 방문하세요.";
+
+        function getPooCardColors(typeText) {
+            let bgColor = '#ECEFF1';     
+            let textColor = '#263238';     
+            let btnBorderColor = '#B0BEC5'; 
+            let btnHoverBgColor = '#CFD8DC';
+            let contentBorderColor = '#B0BEC5'; 
+
+            if (typeText.includes("갈색")) { bgColor = '#D7CCC8'; textColor = '#3E2723'; btnBorderColor = '#A1887F'; btnHoverBgColor = '#BCAAA4'; contentBorderColor = '#A1887F';}
+            else if (typeText.includes("노란색")) { bgColor = '#FFF9C4'; textColor = '#795548'; btnBorderColor = '#FBC02D'; btnHoverBgColor = '#FFF59D'; contentBorderColor = '#FBC02D';}
+            else if (typeText.includes("초록색")) { bgColor = '#C8E6C9'; textColor = '#2E7D32'; btnBorderColor = '#66BB6A'; btnHoverBgColor = '#A5D6A7'; contentBorderColor = '#66BB6A';}
+            else if (typeText.includes("주황색")) { bgColor = '#FFCCBC'; textColor = '#D84315'; btnBorderColor = '#FF8A65'; btnHoverBgColor = '#FFAB91'; contentBorderColor = '#FF8A65';}
+            else if (typeText.includes("붉은색")) { bgColor = '#FFCDD2'; textColor = '#C62828'; btnBorderColor = '#E57373'; btnHoverBgColor = '#EF9A9A'; contentBorderColor = '#E57373';}
+            else if (typeText.includes("검정색")) { bgColor = '#BDBDBD'; textColor = '#212121'; btnBorderColor = '#757575'; btnHoverBgColor = '#9E9E9E'; contentBorderColor = '#757575';}
+            else if (typeText.includes("흰색 / 회색")) { bgColor = '#F5F5F5'; textColor = '#424242'; btnBorderColor = '#BDBDBD'; btnHoverBgColor = '#EEEEEE'; contentBorderColor = '#BDBDBD';}
+            else if (typeText.includes("흰색 반점")) { bgColor = '#FAFAFA'; textColor = '#757575'; btnBorderColor = '#E0E0E0'; btnHoverBgColor = '#F5F5F5'; contentBorderColor = '#E0E0E0';}
+            else if (typeText.includes("점액")) { bgColor = '#E0F2F1'; textColor = '#00695C'; btnBorderColor = '#4DB6AC'; btnHoverBgColor = '#80CBC4'; contentBorderColor = '#4DB6AC';}
+            else if (typeText.includes("털")) { bgColor = '#EFEBE9'; textColor = '#4E342E'; btnBorderColor = '#BCAAA4'; btnHoverBgColor = '#D7CCC8'; contentBorderColor = '#BCAAA4';}
+            
+            return { bgColor, textColor, btnBorderColor, btnHoverBgColor, contentBorderColor };
+        }
+        
+        function getRiskClass(level) {
+            if (level.includes("정상")) return 'risk-normal';
+            if (level.includes("주의 관찰")) return 'risk-caution';
+            if (level.includes("즉시 병원")) return 'risk-urgent';
+            return '';
+        }
+
+        function renderPooCards() {
+            const pooInfoSection = document.getElementById('poo-info-section');
+            if (!pooInfoSection) return;
+
+            pooDetailsData.forEach(info => {
+                const card = document.createElement('div');
+                card.className = 'vomit-card';
+                const colors = getPooCardColors(info.type);
+                card.style.backgroundColor = colors.bgColor;
+
+                const header = document.createElement('div');
+                header.className = 'vomit-card-header';
+                header.style.color = colors.textColor;
+
+                const headerTitle = document.createElement('span');
+                headerTitle.className = 'vomit-card-header-title';
+                headerTitle.innerHTML = info.type; 
+                
+                const headerButtons = document.createElement('div');
+                headerButtons.className = 'header-buttons';
+
+                const copyAllBtn = document.createElement('button');
+                copyAllBtn.className = 'copy-all-button';
+                copyAllBtn.textContent = '전체 복사';
+                copyAllBtn.style.color = colors.textColor;
+                copyAllBtn.style.borderColor = colors.btnBorderColor;
+                copyAllBtn.addEventListener('mouseover', () => { 
+                    copyAllBtn.style.backgroundColor = colors.btnHoverBgColor;
+                    copyAllBtn.style.borderColor = colors.textColor; 
+                });
+                copyAllBtn.addEventListener('mouseout', () => { 
+                    copyAllBtn.style.backgroundColor = 'rgba(255,255,255,0.2)'; 
+                    copyAllBtn.style.borderColor = colors.btnBorderColor;
+                });
+
+                const toggleBtn = document.createElement('button');
+                toggleBtn.className = 'toggle-button';
+                toggleBtn.textContent = '더보기';
+                toggleBtn.style.color = colors.textColor;
+                toggleBtn.style.borderColor = colors.btnBorderColor;
+                toggleBtn.addEventListener('mouseover', () => { 
+                    toggleBtn.style.backgroundColor = colors.btnHoverBgColor; 
+                    toggleBtn.style.borderColor = colors.textColor;
+                });
+                toggleBtn.addEventListener('mouseout', () => { 
+                    toggleBtn.style.backgroundColor = 'rgba(255,255,255,0.2)';
+                    toggleBtn.style.borderColor = colors.btnBorderColor;
+                });
+
+                headerButtons.appendChild(copyAllBtn);
+                headerButtons.appendChild(toggleBtn);
+
+                header.appendChild(headerTitle);
+                header.appendChild(headerButtons);
+                
+                const content = document.createElement('div');
+                content.className = 'vomit-card-content';
+                content.style.color = colors.textColor; 
+                const strongOpacity = (colors.textColor === '#212121' || colors.textColor === '#3E2723' || colors.textColor === '#2E7D32') ? 0.85 : 1;
+                content.innerHTML = `
+                    <p><strong style="color:${colors.textColor}; opacity:${strongOpacity};">주요 원인:</strong><br>${info.cause}</p>
+                    <p><strong style="color:${colors.textColor}; opacity:${strongOpacity};">대처법:</strong><br>${info.action}</p>
+                    <p><strong style="color:${colors.textColor}; opacity:${strongOpacity};">주의사항:</strong><br>${info.precaution}</p>
+                `;
+                
+                card.appendChild(header);
+                card.appendChild(content);
+                pooInfoSection.appendChild(card);
+
+                const toggleContent = () => {
+                    const isDisplayed = content.classList.contains('open');
+                    if (isDisplayed) {
+                        content.classList.remove('open');
+                        toggleBtn.textContent = '더보기';
+                    } else {
+                        content.classList.add('open');
+                        content.style.borderTopColor = colors.contentBorderColor; 
+                        toggleBtn.textContent = '간략히';
+                    }
+                };
+
+                header.addEventListener('click', (e) => {
+                    if (e.target.closest('.header-buttons')) return;
+                    toggleContent();
+                });
+                
+                toggleBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    toggleContent();
+                });
+
+                copyAllBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const textToCopy = 
+`${info.type.replace(/<\/?b>/gi, '')} \n\n` +
+`주요 원인:\n${info.cause.replace(/<br\s*\/?>/gi, '\n')}\n\n` +
+`대처법:\n${info.action.replace(/<br\s*\/?>/gi, '\n')}\n\n` +
+`주의사항:\n${info.precaution.replace(/<br\s*\/?>/gi, '\n')}`;
+
+                    navigator.clipboard.writeText(textToCopy).then(() => {
+                        const originalText = copyAllBtn.textContent;
+                        copyAllBtn.textContent = '복사 완료!';
+                        copyAllBtn.style.backgroundColor = colors.btnHoverBgColor; 
+                        copyAllBtn.style.color = colors.bgColor; 
+                        setTimeout(() => {
+                            copyAllBtn.textContent = originalText;
+                            copyAllBtn.style.backgroundColor = 'rgba(255,255,255,0.2)'; 
+                            copyAllBtn.style.color = colors.textColor; 
+                        }, 1500);
+                    }).catch(err => {
+                        console.error('전체 복사 실패:', err);
+                        alert('클립보드 전체 복사에 실패했습니다. 잠시 후 다시 시도해주세요.');
+                    });
+                });
+            });
+        }
+
+        function renderPooRiskTable() {
+            const riskTableBody = document.getElementById('poo-risk-summary-table')?.getElementsByTagName('tbody')[0];
+            if (!riskTableBody) return;
+
+            pooRiskInfoData.forEach(risk => {
+                const row = riskTableBody.insertRow();
+                row.className = getRiskClass(risk.level); 
+                row.insertCell().innerHTML = risk.level;
+                row.insertCell().innerHTML = risk.states;
+                row.insertCell().innerHTML = risk.description;
+            });
+        }
+
+        function renderNotice() {
+            const noticeContent = document.getElementById('notice-content');
+            if (noticeContent) {
+                noticeContent.innerHTML = noticeHtmlText;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('main-title').textContent = pageGlobalTitle;
+            renderPooCards();
+            renderPooRiskTable();
+            renderNotice();
+        });
+    </script>
+</body>
+</html>

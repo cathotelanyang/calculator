@@ -8,6 +8,869 @@
 		<link rel="preconnect" href="https://fonts.googleapis.com">
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 		<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@100;200;300;400;500;600;700&display=swap" rel="stylesheet">
+		<title>묘랑묘랑 안양본점 숙박요금 계산기</title>
+		<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+		<script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/js/all.min.js"></script>
+		<script>
+			(function() {
+				// 설정 객체
+				const CONFIG = {
+					TIME: {
+						CHECK_IN: {
+							LATE_CHECK_IN_HOUR: 18,
+							DEFAULT_HOUR: 10
+						},
+						CHECK_OUT: {
+							EARLY_CHECK_OUT_HOUR: 12,
+							DEFAULT_HOUR: 20
+						},
+						FEEDBACK_SUCCESS_DURATION: 2000, // 피드백 성공 메시지 표시 시간
+						FEEDBACK_ERROR_DURATION: 3000   // 피드백 에러 메시지 표시 시간
+					},
+					ROOM_INFO: {
+						'f': { 
+							basePrice: 50000, maxCats: 2, className: 'family', name: '패밀리',
+							features: [
+								{ text: "가장 넓은 공간" },
+								{ text: "대형 창문" },
+								{ text: "다묘 가족 추천", isRecommend: true }
+							]
+						},
+						'p': { 
+							basePrice: 30000, maxCats: 1, className: 'premier', name: '프리미어',
+							features: [
+								{ text: "큰 창문" },
+								{ text: "수직 공간 2곳" },
+								{ text: "활동적인 냥이 추천", isRecommend: true }
+							]
+						},
+						'd': { 
+							basePrice: 28000, maxCats: 1, className: 'deluxe', name: '디럭스',
+							features: [
+								{ text: "중간 창문" },
+								{ text: "수직 공간 1곳" },
+								{ text: "일반적인 숙박 추천", isRecommend: true }
+							]
+						},
+						's': { 
+							basePrice: 25000, maxCats: 1, className: 'standard', name: '스탠다드',
+							features: [
+								{ text: "창문 없는 조용한 공간" },
+								{ text: "안정적인 환경" },
+								{ text: "예민/소심 냥이 추천", isRecommend: true }
+							]
+						}
+					},
+					ADDITIONAL_CAT_FEE: 5000,
+					DISCOUNT_RULES: [
+						{ days: 30, rate: 30 },
+						{ days: 20, rate: 20 },
+						{ days: 10, rate: 10 }
+					],
+					MESSAGES: { // UI 메시지 중앙화
+						COPY_SUCCESS: "계산 결과가 복사되었습니다!",
+						COPY_ERROR: "복사에 실패했어요. 다시 시도해주세요.",
+						SAVE_IMAGE_SUCCESS: "이미지가 저장되었습니다!",
+						SAVE_IMAGE_ERROR: "이미지 저장에 실패했어요. 다시 시도해주세요."
+					},
+					FILE_NAMES: { // 파일명 중앙화
+						RESERVATION_IMAGE: "묘랑묘랑_예약정보.png"
+					}
+				};
+
+				// DOM 요소 참조 (DateHandler와 추후 다른 객체들이 초기화)
+				window.DOM = {
+					dateInputs: {
+						checkIn: { year: null, month: null, day: null, hour: null },
+						checkOut: { year: null, month: null, day: null, hour: null }
+					},
+					room: { type: null, catCount: null }, 
+					price: { room: null, subtotal: null, discount: { rate: null, amount: null }, final: null }, 
+					stay: { duration: null }, 
+					floatingUI: { // 플로팅 UI 요소들 추가
+						menuButton: null,
+						menuContainer: null,
+						mainPageContainer: null, // 배경 블러 처리용
+						encyclopediaToggle: null,
+						encyclopediaLinks: null,
+						buttons: { // 플로팅 메뉴 내부 버튼들
+							reservation: null,
+							roomInfo: null,
+							firstVisit: null,
+							faq: null,
+							location: null
+						}
+					},
+					shareButtons: { // 하단 공유 버튼들
+						copyResult: null,
+						saveAsImage: null,
+						reservationBottom: null,
+						weeklyWeather: null // 주간 날씨 버튼 참조 추가
+					}
+				};
+				
+				const DateHandler = {
+					_getJqueryObject: function(selectorOrJqueryObject) {
+						// 이미 jQuery 객체이면 그대로 반환, 아니면 새로 생성
+						return (selectorOrJqueryObject instanceof jQuery) ? selectorOrJqueryObject : $(selectorOrJqueryObject);
+					},
+					initDOMReferences: function() {
+						DOM.dateInputs.checkIn.year = this._getJqueryObject("#checkInYear");
+						DOM.dateInputs.checkIn.month = this._getJqueryObject("#checkInMonth");
+						DOM.dateInputs.checkIn.day = this._getJqueryObject("#checkInDay");
+						DOM.dateInputs.checkIn.hour = this._getJqueryObject("#checkInHour");
+						DOM.dateInputs.checkOut.year = this._getJqueryObject("#checkOutYear");
+						DOM.dateInputs.checkOut.month = this._getJqueryObject("#checkOutMonth");
+						DOM.dateInputs.checkOut.day = this._getJqueryObject("#checkOutDay");
+						DOM.dateInputs.checkOut.hour = this._getJqueryObject("#checkOutHour");
+					},
+					updateMonthOptions: function(dateInputs, selectedYear, isCheckIn) {
+						const currentVal = dateInputs.month.val() ? parseInt(dateInputs.month.val()) : null;
+						const monthSelect = dateInputs.month;
+						monthSelect.empty();
+						const today = new Date();
+						let startMonth = 1;
+
+						if (isCheckIn) {
+							const tomorrow = new Date(today);
+							tomorrow.setDate(today.getDate() + 1);
+							tomorrow.setHours(0,0,0,0); 
+
+							if (selectedYear === tomorrow.getFullYear()) {
+								startMonth = tomorrow.getMonth() + 1;
+							} else if (selectedYear > tomorrow.getFullYear()) {
+								startMonth = 1;
+							} else { // selectedYear < tomorrow.getFullYear()
+								// 이 경우는 현재 로직상 사용자가 과거 연도를 선택할 수 없으므로 발생하지 않거나,
+								// 연도 드롭다운이 tomorrow.getFullYear() 미만을 포함하지 않도록 해야 함.
+								// 안전장치로 월 옵션을 생성하지 않도록 함.
+								startMonth = 13; 
+							}
+						} else { 
+							const checkInYearObj = DOM.dateInputs.checkIn.year;
+							const checkInMonthObj = DOM.dateInputs.checkIn.month;
+							if (checkInYearObj && checkInYearObj.val() && checkInMonthObj && checkInMonthObj.val()) {
+								const checkInYear = parseInt(checkInYearObj.val());
+								const checkInMonth = parseInt(checkInMonthObj.val());
+								if (selectedYear === checkInYear) {
+									startMonth = checkInMonth;
+								}
+							}
+						}
+						for (let i = startMonth; i <= 12; i++) {
+							monthSelect.append($("<option>").val(i).text(`${i}월`));
+						}
+						if (currentVal && monthSelect.find('option[value="' + currentVal + '"]').length > 0) {
+							monthSelect.val(currentVal);
+						} else if (monthSelect.find("option").length > 0) {
+							monthSelect.val(monthSelect.find("option:first").val());
+						}
+					},
+					updateDayOptions: function(dateInputs, selectedDayToTry) {
+						const year = parseInt(dateInputs.year.val());
+						const month = parseInt(dateInputs.month.val());
+						const daySelect = dateInputs.day;
+						const currentVal = daySelect.val() ? parseInt(daySelect.val()) : null;
+						daySelect.empty();
+						
+						let startDay = 1;
+						const isCheckInSelect = dateInputs.year.is('#checkInYear');
+
+						if (isCheckInSelect) {
+							const today = new Date();
+							const tomorrow = new Date(today);
+							tomorrow.setDate(today.getDate() + 1);
+							tomorrow.setHours(0,0,0,0); 
+
+							// 선택된 연/월의 첫날 Date 객체 (시간 0으로 통일)
+							const selectedMonthFirstDay = new Date(year, month - 1, 1);
+							selectedMonthFirstDay.setHours(0,0,0,0);
+
+							// "내일"이 포함된 달의 첫날 Date 객체 (시간 0으로 통일)
+							const tomorrowMonthFirstDay = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), 1);
+							tomorrowMonthFirstDay.setHours(0,0,0,0);
+
+							if (year === tomorrow.getFullYear() && month === (tomorrow.getMonth() + 1)) {
+								// 선택된 연/월이 "내일"이 포함된 연/월과 같은 경우
+								startDay = tomorrow.getDate();
+							} else if (selectedMonthFirstDay.getTime() < tomorrowMonthFirstDay.getTime()) {
+								// 선택된 연/월이 "내일"이 포함된 달보다 이전 달인 경우 (예: 오늘이 포함된 달)
+								startDay = 32; // 이 달의 날짜 옵션을 생성하지 않음
+							} else {
+								// 선택된 연/월이 "내일"이 포함된 달보다 미래인 경우
+								startDay = 1;
+							}
+						} else { 
+							const checkInYearObj = DOM.dateInputs.checkIn.year;
+							const checkInMonthObj = DOM.dateInputs.checkIn.month;
+							const checkInDayObj = DOM.dateInputs.checkIn.day;
+							if (checkInYearObj && checkInYearObj.val() && checkInMonthObj && checkInMonthObj.val() && checkInDayObj && checkInDayObj.val()) {
+								const checkInYear = parseInt(checkInYearObj.val());
+								const checkInMonth = parseInt(checkInMonthObj.val());
+								const checkInDay = parseInt(checkInDayObj.val());
+								if (year === checkInYear && month === checkInMonth) {
+									startDay = checkInDay;
+								}
+							}
+						}
+						const daysInMonth = new Date(year, month, 0).getDate();
+						for (let i = startDay; i <= daysInMonth; i++) {
+								daySelect.append($("<option>").val(i).text(`${i}일`));
+						}
+						let finalSelectedDay = selectedDayToTry !== null && selectedDayToTry !== undefined ? parseInt(selectedDayToTry) : currentVal;
+						if (daySelect.find('option[value="' + finalSelectedDay + '"]').length > 0) {
+							daySelect.val(finalSelectedDay);
+						} else if (daySelect.find("option").length > 0) {
+							daySelect.val(daySelect.find("option:first").val());
+						}
+					},
+					validateAndAdjustCheckoutDate: function() {
+						if (!DOM.dateInputs.checkIn.year || !DOM.dateInputs.checkIn.year.val()) return;
+						const checkInYear = parseInt(DOM.dateInputs.checkIn.year.val());
+						const checkInMonth = parseInt(DOM.dateInputs.checkIn.month.val());
+						const checkInDay = parseInt(DOM.dateInputs.checkIn.day.val());
+						const checkInDate = new Date(checkInYear, checkInMonth - 1, checkInDay);
+						let checkOutYear = parseInt(DOM.dateInputs.checkOut.year.val());
+						let checkOutMonth = parseInt(DOM.dateInputs.checkOut.month.val());
+						let checkOutDay = parseInt(DOM.dateInputs.checkOut.day.val());
+						const daysInCheckoutMonth = new Date(checkOutYear, checkOutMonth, 0).getDate();
+						if (checkOutDay > daysInCheckoutMonth) {
+							checkOutDay = daysInCheckoutMonth;
+						}
+						let checkOutDate = new Date(checkOutYear, checkOutMonth - 1, checkOutDay);
+						const minCheckoutDate = new Date(checkInDate);
+						if (checkOutDate < minCheckoutDate) {
+							DOM.dateInputs.checkOut.year.val(minCheckoutDate.getFullYear());
+							this.updateMonthOptions(DOM.dateInputs.checkOut, minCheckoutDate.getFullYear(), false);
+							DOM.dateInputs.checkOut.month.val(minCheckoutDate.getMonth() + 1);
+							this.updateDayOptions(DOM.dateInputs.checkOut, minCheckoutDate.getDate());
+						} else {
+							this.updateMonthOptions(DOM.dateInputs.checkOut, checkOutYear, false);
+							this.updateDayOptions(DOM.dateInputs.checkOut, checkOutDay);
+						}
+					},
+					initializeDateSelects: function() {
+						const today = new Date();
+						const currentYear = today.getFullYear();
+
+						const tomorrow = new Date(today); // 내일
+						tomorrow.setDate(today.getDate() + 1);
+						const dayAfterTomorrow = new Date(tomorrow); // 모레
+						dayAfterTomorrow.setDate(tomorrow.getDate() + 1);
+
+						[DOM.dateInputs.checkIn.year, DOM.dateInputs.checkOut.year].forEach(yearSelect => {
+							yearSelect.empty();
+							yearSelect.append($("<option>").val(currentYear).text(`${currentYear}년`));
+							yearSelect.append($("<option>").val(currentYear + 1).text(`${currentYear + 1}년`));
+						});
+
+						// 입실일: 내일로 기본 설정
+						DOM.dateInputs.checkIn.year.val(tomorrow.getFullYear());
+						this.updateMonthOptions(DOM.dateInputs.checkIn, tomorrow.getFullYear(), true);
+						DOM.dateInputs.checkIn.month.val(tomorrow.getMonth() + 1);
+						this.updateDayOptions(DOM.dateInputs.checkIn, tomorrow.getDate());
+						
+						// 퇴실일: 모레로 기본 설정
+						DOM.dateInputs.checkOut.year.val(dayAfterTomorrow.getFullYear());
+						this.updateMonthOptions(DOM.dateInputs.checkOut, dayAfterTomorrow.getFullYear(), false);
+						DOM.dateInputs.checkOut.month.val(dayAfterTomorrow.getMonth() + 1);
+						this.updateDayOptions(DOM.dateInputs.checkOut, dayAfterTomorrow.getDate());
+
+						this.initializeTimeSelects();
+					},
+					initializeTimeSelects: function() {
+						DOM.dateInputs.checkIn.hour.empty();
+						for (let i = 10; i <= 20; i++) {
+							const option = $("<option>").val(i).text(`${i}:00`);
+							if (i >= CONFIG.TIME.CHECK_IN.LATE_CHECK_IN_HOUR) {
+								option.addClass("time-notice").text(`${i}:00 (늦은 입실)`);
+							}
+							DOM.dateInputs.checkIn.hour.append(option);
+						}
+						DOM.dateInputs.checkOut.hour.empty();
+						for (let i = 10; i <= 20; i++) {
+							const option = $("<option>").val(i).text(`${i}:00`);
+							if (i <= CONFIG.TIME.CHECK_OUT.EARLY_CHECK_OUT_HOUR) {
+								option.addClass("time-notice").text(`${i}:00 (빠른 퇴실)`);
+							}
+							DOM.dateInputs.checkOut.hour.append(option);
+						}
+						DOM.dateInputs.checkIn.hour.val(CONFIG.TIME.CHECK_IN.DEFAULT_HOUR);
+						DOM.dateInputs.checkOut.hour.val(CONFIG.TIME.CHECK_OUT.DEFAULT_HOUR);
+					}
+				};
+
+				const PriceCalculator = {
+					getRoomBaseInfo: function(roomType) {
+						const roomConfig = CONFIG.ROOM_INFO[roomType];
+						if (roomConfig) {
+							return { 
+								basePrice: roomConfig.basePrice, 
+								maxCats: roomConfig.maxCats, 
+								roomClass: roomConfig.className 
+							};
+						} else {
+							// 기본값 또는 오류 처리 (예: 스탠다드룸 정보 반환)
+							const defaultConfig = CONFIG.ROOM_INFO['s']; // 기본값으로 스탠다드
+							return { 
+								basePrice: defaultConfig.basePrice, 
+								maxCats: defaultConfig.maxCats, 
+								roomClass: defaultConfig.className 
+							};
+						}
+					},
+					calculateTotalBasePrice: function(roomType, catCount) {
+						const roomInfo = this.getRoomBaseInfo(roomType);
+						const additionalCats = Math.max(0, catCount - roomInfo.maxCats);
+						const additionalFee = additionalCats * CONFIG.ADDITIONAL_CAT_FEE;
+						return {
+							totalBasePrice: roomInfo.basePrice + additionalFee,
+							basePrice: roomInfo.basePrice,
+							maxCats: roomInfo.maxCats,
+							additionalCats,
+							additionalFee,
+							roomClass: roomInfo.roomClass
+						};
+					},
+					calculateStayDuration: function() {
+						const checkInDate = new Date(
+							parseInt(DOM.dateInputs.checkIn.year.val()),
+							parseInt(DOM.dateInputs.checkIn.month.val()) - 1,
+							parseInt(DOM.dateInputs.checkIn.day.val())
+						);
+						const checkOutDate = new Date(
+							parseInt(DOM.dateInputs.checkOut.year.val()),
+							parseInt(DOM.dateInputs.checkOut.month.val()) - 1,
+							parseInt(DOM.dateInputs.checkOut.day.val())
+						);
+						const checkInHour = parseInt(DOM.dateInputs.checkIn.hour.val());
+						const checkOutHour = parseInt(DOM.dateInputs.checkOut.hour.val());
+						let days = Math.ceil((checkOutDate - checkInDate) / (1000 * 60 * 60 * 24)) + 1;
+						let timeNotice = [];
+						if (checkInHour >= CONFIG.TIME.CHECK_IN.LATE_CHECK_IN_HOUR) {
+							days -= 0.5;
+							timeNotice.push("늦은 입실(-0.5일)");
+						}
+						if (checkOutHour <= CONFIG.TIME.CHECK_OUT.EARLY_CHECK_OUT_HOUR) {
+							days -= 0.5;
+							timeNotice.push("빠른 퇴실(-0.5일)");
+						}
+						days = Math.max(1, days);
+						return { days, timeNotice };
+					},
+					calculateDiscount: function(days) {
+						for (const rule of CONFIG.DISCOUNT_RULES) {
+							if (days >= rule.days) {
+								return rule.rate;
+							}
+						}
+						return 0; // 할인 없음
+					},
+					calculateAllPriceDetails: function() {
+						const roomType = DOM.room.type.val();
+						const catCount = parseInt(DOM.room.catCount.val());
+						const basePriceInfo = this.calculateTotalBasePrice(roomType, catCount);
+						const stayDetails = this.calculateStayDuration();
+						const subtotal = Math.floor(basePriceInfo.totalBasePrice * stayDetails.days);
+						const discountRate = this.calculateDiscount(stayDetails.days);
+						const discountAmount = Math.floor(subtotal * (discountRate / 100));
+						const finalPrice = subtotal - discountAmount;
+						return {
+							roomType,
+							basePrice: basePriceInfo.basePrice,
+							totalBasePrice: basePriceInfo.totalBasePrice,
+							maxCats: basePriceInfo.maxCats,
+							additionalCats: basePriceInfo.additionalCats,
+							additionalFee: basePriceInfo.additionalFee,
+							roomClass: basePriceInfo.roomClass,
+							days: stayDetails.days,
+							timeNotice: stayDetails.timeNotice,
+							subtotal,
+							discountRate,
+							discountAmount,
+							finalPrice
+						};
+					}
+				};
+
+				const UIUpdater = {
+					_getJqueryObject: function(selectorOrJqueryObject) {
+						return (selectorOrJqueryObject instanceof jQuery) ? selectorOrJqueryObject : $(selectorOrJqueryObject);
+					},
+					initDOMReferences: function() {
+						DOM.room.type = this._getJqueryObject("#roomType");
+						DOM.room.catCount = this._getJqueryObject("#catCount");
+						DOM.price.room = this._getJqueryObject("#roomPrice");
+						DOM.price.subtotal = this._getJqueryObject("#subtotalPrice");
+						DOM.price.discount.rate = this._getJqueryObject("#discountRate");
+						DOM.price.discount.amount = this._getJqueryObject("#discountAmount");
+						DOM.price.final = this._getJqueryObject("#finalPrice");
+						DOM.stay.duration = this._getJqueryObject("#stayDuration");
+					},
+					animateChange: function($element) {
+						if ($element && $element.length) {
+							$element.addClass("highlight-change");
+							setTimeout(() => {
+								$element.removeClass("highlight-change");
+							}, 600);
+						}
+					},
+					applyRoomSpecificStyles: function(roomClass) {
+						[DOM.room.type, DOM.room.catCount, DOM.price.room].forEach($el => {
+							if ($el && $el.length) {
+								$el.removeClass("family premier deluxe standard").addClass(roomClass);
+							}
+						});
+						const roomName = DOM.room.type.find("option:selected").text();
+						$(".room-type-text").text(roomName).removeClass("family premier deluxe standard").addClass(roomClass);
+					},
+					displayError: function() {
+						DOM.price.room.html('<span class="main-price">0원</span><span class="price-notice">0원, 기준 1마리</span>');
+						DOM.stay.duration.html('<span class="main-price">1일</span>');
+						DOM.price.subtotal.text("0원");
+						DOM.price.discount.rate.text("0%");
+						DOM.price.discount.amount.text("0원");
+						DOM.price.final.html('<span class="main-price">0원</span>');
+						$('.subtotal-row, .discount-row').hide();
+					},
+					displayRoomPrice: function(details) {
+						let priceText = `<span class="main-price">${details.totalBasePrice.toLocaleString()}원</span>`;
+						const baseInfo = details.maxCats === 2 ? "기준 2마리" : "기준 1마리";
+						if (details.additionalCats > 0) {
+							priceText += `<span class="price-notice">${details.basePrice.toLocaleString()}원, ${baseInfo}<br>+${details.additionalCats}마리 ${details.additionalFee.toLocaleString()}원</span>`;
+						} else {
+							priceText += `<span class="price-notice">${details.basePrice.toLocaleString()}원, ${baseInfo}</span>`;
+						}
+						DOM.price.room.html(priceText);
+						this.animateChange(DOM.price.room);
+					},
+					displayStayDuration: function(details) {
+						let daysText = `<span class="main-price">${details.days}일</span>`;
+						if (details.timeNotice.length > 0) {
+							daysText += `<span class="price-notice">${details.timeNotice.join("<br>")}</span>`;
+						}
+						DOM.stay.duration.html(daysText);
+						this.animateChange(DOM.stay.duration);
+					},
+					displayDiscountInfo: function(details) {
+						const discountRows = $('.subtotal-row, .discount-row');
+						if (details.discountRate > 0) {
+							discountRows.show();
+							DOM.price.subtotal.text(details.subtotal.toLocaleString() + "원");
+							DOM.price.discount.rate.text(details.discountRate + "%");
+							DOM.price.discount.amount.text(details.discountAmount.toLocaleString() + "원");
+							this.animateChange(DOM.price.subtotal);
+							this.animateChange(DOM.price.discount.amount);
+						} else {
+							discountRows.hide();
+							DOM.price.subtotal.text("");
+							DOM.price.discount.rate.text("");
+							DOM.price.discount.amount.text("");
+						}
+					},
+					displayFinalPrice: function(details) {
+						DOM.price.final.html(`<span class="main-price">${details.finalPrice.toLocaleString()}원</span>`);
+						this.animateChange(DOM.price.final);
+					},
+					applyInitialStyles: function() {
+						const roomTypeVal = DOM.room.type.val();
+						if(roomTypeVal) {
+							const roomInfo = PriceCalculator.getRoomBaseInfo(roomTypeVal);
+							this.applyRoomSpecificStyles(roomInfo.roomClass);
+						}
+					},
+					populateRoomCards: function() {
+						const roomSection = $('.price-section');
+						if (!roomSection.length) return;
+
+						for (const roomKey in CONFIG.ROOM_INFO) {
+							const roomData = CONFIG.ROOM_INFO[roomKey];
+							const card = roomSection.find(`.room-card[data-room-type="${roomKey}"]`);
+
+							if (card.length) {
+								const header = card.find('.room-header');
+								header.removeClass('family premier deluxe standard').addClass(roomData.className);
+
+								card.find('.tblPriceThType').text(roomData.name);
+								card.find('.room-price').text(roomData.basePrice.toLocaleString() + '원');
+								const baseCatsText = roomData.maxCats > 1 ? `${roomData.maxCats}묘 기준` : `${roomData.maxCats}묘 기준`;
+								card.find('.room-base').text(baseCatsText);
+
+								const featureList = card.find('.feature-list');
+								featureList.empty();
+
+								if (roomData.features && roomData.features.length > 0) {
+									roomData.features.forEach(feature => {
+										const listItem = $('<li></li>').text(feature.text);
+										if (feature.isRecommend) {
+											listItem.addClass('recommend-text');
+										}
+										featureList.append(listItem);
+									});
+								}
+							}
+						}
+					}
+				};
+
+				const EventListeners = {
+					_getJqueryObject: function(selectorOrJqueryObject) {
+						return (selectorOrJqueryObject instanceof jQuery) ? selectorOrJqueryObject : $(selectorOrJqueryObject);
+					},
+					initAdditionalDOMReferences: function() {
+						DOM.floatingUI.menuButton = this._getJqueryObject('#floatingMenuButton');
+						DOM.floatingUI.menuContainer = this._getJqueryObject('#floatingMenu');
+						DOM.floatingUI.mainPageContainer = this._getJqueryObject('body > .container');
+						DOM.floatingUI.encyclopediaToggle = this._getJqueryObject('#encyclopediaToggleTrigger');
+						DOM.floatingUI.encyclopediaLinks = this._getJqueryObject('#encyclopediaLinkGroup');
+						// 플로팅 메뉴 버튼 DOM 참조 추가
+						DOM.floatingUI.buttons.reservation = this._getJqueryObject('#fmBtnReservation');
+						DOM.floatingUI.buttons.roomInfo = this._getJqueryObject('#fmBtnRoomInfo');
+						DOM.floatingUI.buttons.firstVisit = this._getJqueryObject('#fmBtnFirstVisit');
+						DOM.floatingUI.buttons.faq = this._getJqueryObject('#fmBtnFaq');
+						DOM.floatingUI.buttons.location = this._getJqueryObject('#fmBtnLocation');
+						// 하단 공유 버튼 DOM 참조 추가
+						DOM.shareButtons.copyResult = this._getJqueryObject('#btnCopyResult');
+						DOM.shareButtons.saveAsImage = this._getJqueryObject('#btnSaveAsImage');
+						DOM.shareButtons.reservationBottom = this._getJqueryObject('#btnReservationBottom');
+						DOM.shareButtons.weeklyWeather = this._getJqueryObject('#btnWeeklyWeather'); // 주간 날씨 버튼 참조
+
+						// 피드백 요소들의 초기 텍스트 저장
+						const copyFeedbackEl = $(".copy-feedback");
+						if (copyFeedbackEl.length) {
+							copyFeedbackEl.data('original-text', copyFeedbackEl.text());
+						}
+						const saveImageFeedbackEl = $(".save-image-feedback");
+						if (saveImageFeedbackEl.length) {
+							saveImageFeedbackEl.data('original-text', saveImageFeedbackEl.text());
+						}
+					},
+					setupCalculatorInputListeners: function() {
+						DOM.room.type.off("change").on("change", function() {
+							const selectedRoom = $(this).val();
+							const roomInfo = PriceCalculator.getRoomBaseInfo(selectedRoom);
+							UIUpdater.applyRoomSpecificStyles(roomInfo.roomClass);
+							calculateAndUpdatePrice();
+						});
+
+						DOM.room.catCount.off("change").on("change", function() {
+							calculateAndUpdatePrice();
+						});
+
+						DOM.dateInputs.checkIn.month.off("change").on("change", function() {
+							const selectedMonth = parseInt($(this).val());
+							const selectedYear = parseInt(DOM.dateInputs.checkIn.year.val());
+							DateHandler.updateDayOptions(DOM.dateInputs.checkIn, 1);
+							DOM.dateInputs.checkOut.year.val(selectedYear);
+							DateHandler.updateMonthOptions(DOM.dateInputs.checkOut, selectedYear, false);
+							DOM.dateInputs.checkOut.month.val(selectedMonth);
+							const checkInDay = parseInt(DOM.dateInputs.checkIn.day.val());
+							const daysInSelectedCheckoutMonth = new Date(selectedYear, selectedMonth, 0).getDate();
+							const newCheckoutDay = Math.min(checkInDay + 1, daysInSelectedCheckoutMonth);
+							DateHandler.updateDayOptions(DOM.dateInputs.checkOut, newCheckoutDay);
+							DateHandler.validateAndAdjustCheckoutDate();
+							calculateAndUpdatePrice();
+						});
+
+						DOM.dateInputs.checkOut.month.off("change").on("change", function() {
+							DateHandler.updateDayOptions(DOM.dateInputs.checkOut, 1);
+							DateHandler.validateAndAdjustCheckoutDate();
+							calculateAndUpdatePrice();
+						});
+
+						DOM.dateInputs.checkIn.year.off("change").on("change", function() {
+							const selectedYear = parseInt($(this).val());
+							DateHandler.updateMonthOptions(DOM.dateInputs.checkIn, selectedYear, true);
+							DateHandler.updateDayOptions(DOM.dateInputs.checkIn, DOM.dateInputs.checkIn.day.val());
+							DateHandler.validateAndAdjustCheckoutDate();
+							calculateAndUpdatePrice();
+						});
+
+						DOM.dateInputs.checkIn.day.off("change").on("change", function() {
+							DateHandler.validateAndAdjustCheckoutDate();
+							calculateAndUpdatePrice();
+						});
+
+						DOM.dateInputs.checkOut.year.off("change").on("change", function() {
+							const selectedYear = parseInt($(this).val());
+							DateHandler.updateMonthOptions(DOM.dateInputs.checkOut, selectedYear, false);
+							DateHandler.updateDayOptions(DOM.dateInputs.checkOut, DOM.dateInputs.checkOut.day.val());
+							DateHandler.validateAndAdjustCheckoutDate();
+							calculateAndUpdatePrice();
+						});
+						
+						DOM.dateInputs.checkOut.day.off("change").on("change", function() {
+							DateHandler.validateAndAdjustCheckoutDate();
+							calculateAndUpdatePrice();
+						});
+
+						const otherInputs = [DOM.dateInputs.checkIn.hour, DOM.dateInputs.checkOut.hour];
+						otherInputs.forEach(input => {
+							if(input && input.length) {
+								input.off("change").on("change", function() {
+									calculateAndUpdatePrice();
+								});
+							}
+						});
+					},
+					setupFloatingUIListeners: function() {
+						// jQuery 객체를 사용하고 있으므로, addEventListener 대신 .on() 사용 또는 native element 접근
+						if (DOM.floatingUI.encyclopediaToggle && DOM.floatingUI.encyclopediaToggle.length && DOM.floatingUI.encyclopediaLinks && DOM.floatingUI.encyclopediaLinks.length) {
+							DOM.floatingUI.encyclopediaToggle.get(0).addEventListener('click', function() {
+								DOM.floatingUI.encyclopediaLinks.toggleClass('open');
+								DOM.floatingUI.encyclopediaToggle.toggleClass('active');
+								// ARIA-EXPANDED 업데이트
+								const isEncyclopediaExpanded = DOM.floatingUI.encyclopediaToggle.hasClass('active');
+								DOM.floatingUI.encyclopediaToggle.attr('aria-expanded', isEncyclopediaExpanded);
+							});
+						}
+
+						if (DOM.floatingUI.menuButton && DOM.floatingUI.menuButton.length && DOM.floatingUI.menuContainer && DOM.floatingUI.menuContainer.length) {
+							DOM.floatingUI.menuButton.get(0).addEventListener('click', function() {
+								DOM.floatingUI.menuContainer.toggleClass('active');
+								// ARIA-EXPANDED 업데이트
+								const isMenuExpanded = DOM.floatingUI.menuContainer.hasClass('active');
+								DOM.floatingUI.menuButton.attr('aria-expanded', isMenuExpanded);
+
+								if (DOM.floatingUI.mainPageContainer && DOM.floatingUI.mainPageContainer.length) {
+									DOM.floatingUI.mainPageContainer.toggleClass('blurred-background');
+								}
+							});
+						}
+
+						$(document).on('click', function(event) {
+							if (DOM.floatingUI.menuContainer && DOM.floatingUI.menuContainer.hasClass('active')) {
+								const isClickInsideMenu = DOM.floatingUI.menuContainer.get(0).contains(event.target);
+								const isClickOnButton = DOM.floatingUI.menuButton && DOM.floatingUI.menuButton.length && DOM.floatingUI.menuButton.get(0).contains(event.target);
+								if (!isClickInsideMenu && !isClickOnButton) {
+									DOM.floatingUI.menuContainer.removeClass('active');
+									// ARIA-EXPANDED 업데이트
+									DOM.floatingUI.menuButton.attr('aria-expanded', 'false');
+									if (DOM.floatingUI.mainPageContainer && DOM.floatingUI.mainPageContainer.length) {
+										DOM.floatingUI.mainPageContainer.removeClass('blurred-background');
+									}
+								}
+							}
+						});
+
+						// 플로팅 메뉴 내부 버튼 이벤트 리스너
+						if (DOM.floatingUI.buttons.reservation) {
+							DOM.floatingUI.buttons.reservation.on('click', () => window.open('https://forms.gle/nqxdDJaTdo8t1Hzw9', '_blank'));
+						}
+						if (DOM.floatingUI.buttons.roomInfo) {
+							DOM.floatingUI.buttons.roomInfo.on('click', () => window.open('https://m.blog.naver.com/PostView.naver?blogId=cathotelanyang&logNo=223140170019&navType=by', '_blank'));
+						}
+						if (DOM.floatingUI.buttons.firstVisit) {
+							DOM.floatingUI.buttons.firstVisit.on('click', () => window.open('https://blog.naver.com/cathotelanyang/223835463336', '_blank'));
+						}
+						if (DOM.floatingUI.buttons.faq) {
+							DOM.floatingUI.buttons.faq.on('click', () => window.open('https://blog.naver.com/cathotelanyang/223191372339', '_blank'));
+						}
+						if (DOM.floatingUI.buttons.location) {
+							DOM.floatingUI.buttons.location.on('click', () => window.open('http://naver.me/GdJKXmqt', '_blank'));
+						}
+					},
+					setupGeneralToggleListeners: function() {
+						// .toggle-header 관련 로직
+						const toggleHeaders = document.querySelectorAll('.toggle-header');
+						toggleHeaders.forEach(header => {
+							header.addEventListener('click', function() {
+								const targetId = this.dataset.target;
+								const content = document.getElementById(targetId);
+								const arrow = this.querySelector('.toggle-arrow');
+								if (content) {
+									content.classList.toggle('show');
+									arrow.classList.toggle('open');
+									if (content.classList.contains('show')) {
+										arrow.classList.remove('fa-chevron-down');
+										arrow.classList.add('fa-chevron-up');
+									} else {
+										arrow.classList.remove('fa-chevron-up');
+										arrow.classList.add('fa-chevron-down');
+									}
+								}
+							});
+						});
+					},
+					setupShareButtonListeners: function() { // 하단 공유 버튼 이벤트 리스너 설정 함수 추가
+						if (DOM.shareButtons.copyResult) {
+							DOM.shareButtons.copyResult.on('click', copyResult);
+						}
+						if (DOM.shareButtons.saveAsImage) {
+							DOM.shareButtons.saveAsImage.on('click', saveAsImage);
+						}
+						if (DOM.shareButtons.reservationBottom) {
+							DOM.shareButtons.reservationBottom.on('click', () => window.open('https://forms.gle/nqxdDJaTdo8t1Hzw9', '_blank'));
+						}
+						if (DOM.shareButtons.weeklyWeather) { // 주간 날씨 버튼 이벤트 리스너
+							DOM.shareButtons.weeklyWeather.on('click', () => window.open('https://weather.naver.com/today/02171580?cpName=KMA', '_blank'));
+						}
+					}
+				};
+
+				const AppInitializer = {
+					init: function() {
+						// 1. DOM 참조 초기화
+						DateHandler.initDOMReferences();
+						UIUpdater.initDOMReferences();
+						EventListeners.initAdditionalDOMReferences();
+
+						// 2. 계산기 기본 설정 및 초기 UI 적용
+						DateHandler.initializeDateSelects(); 
+						UIUpdater.applyInitialStyles();    
+						UIUpdater.populateRoomCards();
+
+						// 3. 초기 가격 계산 및 화면 업데이트
+						calculateAndUpdatePrice();
+
+						// 3.5 현재 날짜 표시
+						this.displayCurrentDate(); 
+
+						// 4. 이벤트 리스너 설정
+						EventListeners.setupCalculatorInputListeners();
+						
+						EventListeners.setupFloatingUIListeners();
+						EventListeners.setupGeneralToggleListeners();
+						EventListeners.setupShareButtonListeners(); // 하단 공유 버튼 리스너 설정 호출 추가
+					},
+					displayCurrentDate: function() {
+						const currentDateElement = $("#currentDateDisplay");
+						if (currentDateElement.length) {
+							const now = new Date();
+							const year = now.getFullYear();
+							const month = now.getMonth() + 1; // 월은 0부터 시작하므로 +1
+							const day = now.getDate();
+							// 아이콘과 텍스트를 span으로 감싸고 html()로 설정
+							currentDateElement.html(`<span><i class="fas fa-calendar-alt"></i> 오늘: ${year}년 ${month}월 ${day}일</span>`);
+						}
+					}
+				};
+
+				$(document).ready(function() {
+					AppInitializer.init();
+				});
+
+				function calculateAndUpdatePrice() {
+					try {
+						const priceDetails = PriceCalculator.calculateAllPriceDetails();
+						
+						UIUpdater.displayRoomPrice(priceDetails);
+						UIUpdater.displayStayDuration(priceDetails);
+						UIUpdater.displayDiscountInfo(priceDetails);
+						UIUpdater.displayFinalPrice(priceDetails);
+
+					} catch (error) {
+						console.error("가격 계산 중 오류 발생:", error);
+						UIUpdater.displayError(); // 에러 발생 시 UIUpdater의 에러 표시 함수 호출
+					}
+				}
+				
+				function copyResult() {
+					const roomTypeText = DOM.room.type.find("option:selected").text();
+					const catCount = DOM.room.catCount.val();
+					const checkInDate = `${DOM.dateInputs.checkIn.year.val()}년 ${DOM.dateInputs.checkIn.month.val()}월 ${DOM.dateInputs.checkIn.day.val()}일 ${DOM.dateInputs.checkIn.hour.val()}시`;
+					const checkOutDate = `${DOM.dateInputs.checkOut.year.val()}년 ${DOM.dateInputs.checkOut.month.val()}월 ${DOM.dateInputs.checkOut.day.val()}일 ${DOM.dateInputs.checkOut.hour.val()}시`;
+					
+					let roomPriceText = "";
+					const roomPriceMain = DOM.price.room.find(".main-price").text();
+					const roomPriceNotice = DOM.price.room.find(".price-notice").html();
+					roomPriceText = roomPriceMain + (roomPriceNotice ? " (" + roomPriceNotice.replace(/<br>/g, ", ") + ")" : "");
+
+					let stayDurationText = "";
+					const stayDurationMain = DOM.stay.duration.find(".main-price").text();
+					const stayDurationNotice = DOM.stay.duration.find(".price-notice").html();
+					stayDurationText = stayDurationMain + (stayDurationNotice ? " (" + stayDurationNotice.replace(/<br>/g, ", ") + ")" : "");
+
+					const discountRateText = DOM.price.discount.rate.text(); 
+					const finalPrice = DOM.price.final.find(".main-price").text();
+
+					const timeNotice = [];
+					if(parseInt(DOM.dateInputs.checkIn.hour.val()) >= CONFIG.TIME.CHECK_IN.LATE_CHECK_IN_HOUR) {
+						timeNotice.push("늦은 입실(-0.5일)");
+					}
+					if(parseInt(DOM.dateInputs.checkOut.hour.val()) <= CONFIG.TIME.CHECK_OUT.EARLY_CHECK_OUT_HOUR) {
+						timeNotice.push("빠른 퇴실(-0.5일)");
+					}
+					const timeNoticeTextForCopy = timeNotice.length > 0 ? `\n⚠️ ${timeNotice.join(" | ")}` : ""; 
+
+					let discountTextForCopy = ""; 
+					if (discountRateText && discountRateText !== "0%" && discountRateText !== "") { // 할인율이 있는 경우
+						const subtotalPrice = DOM.price.subtotal.text();
+						const discountAmount = DOM.price.discount.amount.text();
+						discountTextForCopy = `\n📊 할인 전 금액: ${subtotalPrice}\n💝 할인율: ${discountRateText}\n💫 할인금액: ${discountAmount}`;
+					}
+
+					const resultText = 
+						`[묘랑묘랑 안양본점 숙박 예약 정보]\n\n` +
+						`🏠 객실: ${roomTypeText}\n` +
+						`🐱 고양이: ${catCount}마리\n` +
+						`💵 객실 요금: ${roomPriceText}\n` +
+						`📅 체크인: ${checkInDate}\n` +
+						`📅 체크아웃: ${checkOutDate}\n` +
+						`⏰ 이용일수: ${stayDurationText}${timeNoticeTextForCopy}${discountTextForCopy}\n` +
+						`💰 최종 금액: ${finalPrice}`;
+
+					navigator.clipboard.writeText(resultText)
+					.then(() => {
+						showFeedback(".copy-feedback", CONFIG.MESSAGES.COPY_SUCCESS);
+					})
+					.catch(err => {
+						console.error('클립보드 복사 실패:', err);
+						showFeedback(".copy-feedback", CONFIG.MESSAGES.COPY_ERROR, true, CONFIG.TIME.FEEDBACK_ERROR_DURATION);
+					});
+				}
+				function saveAsImage() {
+					const wrapper = document.createElement('div');
+					wrapper.classList.add('image-capture-wrapper');
+					
+					const priceOutput = document.querySelector('.tblPriceOutput').cloneNode(true);
+					const finalPrice = document.querySelector('.tblFinalPrice').cloneNode(true);
+					
+					priceOutput.classList.add('image-capture-price-output');
+					
+					wrapper.appendChild(priceOutput);
+					wrapper.appendChild(finalPrice);
+					document.body.appendChild(wrapper);
+					
+					html2canvas(wrapper, { backgroundColor: null, useCORS: true }).then(canvas => {
+						const link = document.createElement('a');
+						link.download = CONFIG.FILE_NAMES.RESERVATION_IMAGE;
+						link.href = canvas.toDataURL("image/png");
+						link.click();
+						document.body.removeChild(wrapper);
+						showFeedback(".save-image-feedback", CONFIG.MESSAGES.SAVE_IMAGE_SUCCESS);
+					})
+					.catch(err => {
+						console.error('이미지 저장 실패:', err);
+						showFeedback(".save-image-feedback", CONFIG.MESSAGES.SAVE_IMAGE_ERROR, true, CONFIG.TIME.FEEDBACK_ERROR_DURATION);
+						document.body.removeChild(wrapper); // 에러 발생 시에도 wrapper 제거
+					});
+				}
+
+				// 피드백 UI 표시 헬퍼 함수
+				function showFeedback(feedbackSelector, message, isError = false, duration) {
+					const feedbackElement = $(feedbackSelector);
+					// duration이 명시적으로 전달되지 않으면 CONFIG 값 사용
+					duration = duration || (isError ? CONFIG.TIME.FEEDBACK_ERROR_DURATION : CONFIG.TIME.FEEDBACK_SUCCESS_DURATION);
+
+					feedbackElement.text(message);
+					if (isError) {
+						feedbackElement.addClass("show error");
+					} else {
+						feedbackElement.addClass("show").removeClass("error");
+					}
+
+					setTimeout(() => {
+						feedbackElement.removeClass("show error");
+						// data 속성에 저장된 원래 텍스트로 복원
+						if (feedbackElement.data('original-text')) {
+							feedbackElement.text(feedbackElement.data('original-text'));
+						}
+					}, duration);
+				}
+			})(); 
+		</script>
 		<style>
 			:root {
 				--primary-color: #4A90E2;
@@ -26,12 +889,10 @@
 				/* 타이포그래피 시스템 */
 				--font-size-xs: 0.75rem;    /* 12px */
 				--font-size-sm: 0.875rem;   /* 14px */
-				--font-size-base: 0.9375rem; /* 15px - 기본 크기 약간 줄임 */
+				--font-size-base: 0.9375rem; /* 15px */
 				--font-size-lg: 1.125rem;   /* 18px */
 				--font-size-xl: 1.25rem;    /* 20px */
 				--font-size-2xl: 1.5rem;    /* 24px */
-				--font-size-3xl: 1.875rem;  /* 30px */
-				--font-size-4xl: 2.25rem;   /* 36px */
 				
 				/* 폰트 웨이트 */
 				--font-light: 300;
@@ -43,21 +904,16 @@
 				/* 공통 스타일 변수 추가 */
 				--input-border-radius: 8px;
 				--input-padding: 12px;
-				--input-gap: 8px;
-				--mobile-padding: 8px;
-				--mobile-gap: 4px;
-				--warning-color-rgb: 245, 166, 35; /* #F5A623의 RGB 값 (기존 warning-color와 스탠다드룸 색상이 같음) */
-				--primary-color-rgb: 74, 144, 226; /* #4A90E2의 RGB 값 */
-				--family-room-color-rgb: 39, 174, 96; /* #27AE60의 RGB 값 */
-				--premier-room-color-rgb: 52, 152, 219; /* #3498DB의 RGB 값 */
-				--deluxe-room-color-rgb: 231, 76, 60; /* #E74C3C의 RGB 값 */
-				/* --standard-room-color-rgb는 --warning-color-rgb와 동일 */
+				--button-padding: 12px 20px;
+				--card-border-radius: 12px;
+				--section-gap: 20px;
+				--mobile-padding: 15px; /* body, container 등의 모바일 패딩 */
 			}
 
 			body {
 				max-width: 800px;
 				margin: 0 auto;
-				padding: 20px;
+				padding: var(--section-gap);
 				box-sizing: border-box;
 				background-color: #F5F8FA;
 				color: var(--text-color);
@@ -66,630 +922,36 @@
 				font-weight: var(--font-regular);
 				font-size: var(--font-size-base);
 			}
-			
+
 			.container {
 				width: 100%;
-				padding: 20px;
+				padding: var(--section-gap);
 				box-sizing: border-box;
 				background-color: white;
 				border-radius: 16px;
 				box-shadow: 0 4px 16px var(--shadow-color);
-			}
-			
-			/* 입력 테이블 스타일 개선 */
-			.tblPrice, .tblPriceInput, .tblPriceOutput {
-				width: 100%;
-				border-collapse: separate;
-				border-spacing: 0;
-				margin: 20px 0;
+				transition: filter 0.3s ease-out;
 			}
 
-			.tblPrice th, .tblPrice td,
-			.tblPriceInput th, .tblPriceInput td {
-				padding: 16px;
-				border: 1px solid var(--border-color);
+			.container.blurred-background {
+				filter: blur(3px);
+				pointer-events: none;
 			}
 
-			/* 입력 폼 그룹 스타일 */
-			.input-group {
-				position: relative;
-				padding: 20px;
-				border: 1px solid #E2E8F0;
-				border-radius: 12px;
-				margin-bottom: 20px;
-				transition: all 0.2s ease;
-				background: white;
-			}
-
-			/* 선택 요소 기본 스타일 */
-			select {
-				appearance: none;
-				-webkit-appearance: none;
-				width: 100%;
-				padding: 12px 16px;
-				border: 1px solid var(--border-color);
-				border-radius: 12px;
-				background-color: white;
-				color: var(--text-color);
-				font-size: var(--font-size-base);
-				cursor: pointer;
-				transition: all 0.2s ease;
-				background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath fill='%23495057' d='M4.646 6.146a.5.5 0 0 1 .708 0L8 8.793l2.646-2.647a.5.5 0 0 1 .708.708l-3 3a.5.5 0 0 1-.708 0l-3-3a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E");
-				background-repeat: no-repeat;
-				background-position: right 12px center;
-				background-size: 16px;
-			}
-
-			/* 선택 요소 호버/포커스 효과 */
-			select:hover {
-				border-color: var(--warning-color);
-				background-color: rgba(var(--warning-color-rgb), 0.12);
-				transform: translateY(-1px);
-			}
-
-			/* 일반 select focus 스타일 */
-			select:focus {
-				outline: none;
-				border-color: var(--primary-color); /* 기본 포커스 색상을 primary로 변경 */
-				box-shadow: 0 0 0 3px rgba(var(--primary-color-rgb), 0.25); /* primary 색상 기반 shadow */
-			}
-
-			/* 객실 타입 선택(#roomType) 포커스 스타일 */
-			#roomType:focus {
-				/* #roomType의 기본 포커스는 각 타입별 색상을 따르므로, 여기서는 일반 select:focus를 덮어쓰지 않도록 비워두거나,
-				   아주 기본적인 outline만 남길 수 있습니다. 
-				   혹은, 현재 선택된 값에 따라 JS가 클래스를 변경하므로, 아래의 타입별 :focus 스타일이 우선 적용됩니다. */
-				border-color: currentColor; /* 현재 #roomType에 적용된 border-color 유지 */
-			}
-
-			#roomType.family:focus {
-				border-color: var(--family-room-color);
-				box-shadow: 0 0 0 3px rgba(var(--family-room-color-rgb), 0.3);
-			}
-
-			#roomType.premier:focus {
-				border-color: var(--premier-room-color);
-				box-shadow: 0 0 0 3px rgba(var(--premier-room-color-rgb), 0.3);
-			}
-
-			#roomType.deluxe:focus {
-				border-color: var(--deluxe-room-color);
-				box-shadow: 0 0 0 3px rgba(var(--deluxe-room-color-rgb), 0.3);
-			}
-
-			#roomType.standard:focus {
-				border-color: var(--standard-room-color);
-				/* standard-room-color-rgb는 warning-color-rgb와 같으므로 그것을 사용 */
-				box-shadow: 0 0 0 3px rgba(var(--warning-color-rgb), 0.3);
-			}
-
-			/* 할인전 투숙비용 표시 스타일 */
-			.subtotal-row th {
-				background-color: rgba(255, 126, 0, 0.15) !important;
-				color: #FF7E00 !important;
-				font-size: var(--font-size-base);
-			}
-
-			.subtotal-row .price-display {
-				background-color: rgba(255, 126, 0, 0.15);
-				color: #FF7E00;
-				font-size: var(--font-size-base);
-			}
-
-			/* 할인 정보 스타일 */
-			.discount-info {
-				display: flex;
-				gap: 12px;
-				justify-content: flex-end;
-				width: 100%;
-			}
-
-			.discount-row th {
-				background-color: #FF7E00 !important;
-				color: white !important;
-				font-size: var(--font-size-lg);
-				font-weight: var(--font-bold);
-			}
-
-			.discount-row td {
-				background-color: rgba(255, 126, 0, 0.02) !important;
-			}
-
-			.discount-rate {
-				display: inline-block;
-				padding: 14px 20px;
-				border-radius: 10px;
-				font-weight: var(--font-bold);
-				text-align: center;
-				min-width: 110px;
-				font-size: var(--font-size-lg);
-				background-color: rgba(255, 126, 0, 0.15);
-				color: #FF7E00;
-				border: 1px solid rgba(255, 126, 0, 0.2);
-				box-shadow: 0 4px 8px rgba(255, 126, 0, 0.1);
-			}
-
-			.discount-amount {
-				display: inline-block;
-				padding: 14px 20px;
-				border-radius: 10px;
-				font-weight: var(--font-bold);
-				text-align: center;
-				min-width: 110px;
-				font-size: var(--font-size-lg);
-				background-color: rgba(255, 126, 0, 0.15);
-				color: #FF7E00;
-				border: 1px solid rgba(255, 126, 0, 0.2);
-				box-shadow: 0 4px 8px rgba(255, 126, 0, 0.1);
-			}
-
-			/* 최종 투숙비용 테이블 스타일 */
-			.tblFinalPrice {
-				margin-top: 20px;
-				border-radius: 12px;
-				overflow: hidden;
-				width: 100%;
-				border: 3px solid var(--text-color);
-				box-shadow: 0 4px 12px rgba(44, 62, 80, 0.25);
-				/* 테이블 전체 배경색은 여기서 지정하지 않고, th/td에서 각각 지정하여 td 가려짐 방지 */
-			}
-
-			/* 최종 투숙비용 행 스타일 */
-			.final-cost-row {
-				border: none;
-				display: table; /* 행 전체를 테이블로 인식 */
-				width: 100%; /* 행 너비 100% */
-				border-collapse: collapse; /* 내부 셀 경계 한 줄로 */
-			}
-
-			.final-cost-row th {
-				display: table-cell; /* 명시적 테이블 셀 */
-				background-color: var(--danger-color) !important;
-				color: white !important;
-				font-weight: var(--font-bold);
-				font-size: var(--font-size-xl);
-				width: 35%;
-				text-align: left;
-				padding: 20px;
-				position: relative;
-				vertical-align: middle;
-				/* overflow: visible; /* ::after 가상요소가 넘칠 수 있도록 */
-			}
-
-			.final-cost-row th::after { 
-				content: '';
-				position: absolute;
-				right: -14px; /* th 경계 바로 바깥쪽 (테두리 두께 고려) */
-				top: 50%;
-				transform: translateY(-50%) rotate(45deg);
-				width: 28px; /* 크기 약간 줄여봄 */
-				height: 28px; /* 크기 약간 줄여봄 */
-				background-color: var(--danger-color);
-				z-index: 1; 
-			}
-
-			.final-cost-row td {
-				display: table-cell; /* 명시적 테이블 셀 */
-				width: 65%;
-				position: relative; 
-				background-color: white; 
-				padding: 20px 30px;
-				vertical-align: middle;
-			}
-
-			.final-cost-row .price-display {
-				background-color: rgba(255, 90, 95, 0.15); 
-				border: 1px solid rgba(255, 90, 95, 0.25);
-				box-shadow: 0 1px 4px rgba(255, 90, 95, 0.08);
-				padding: 16px 24px;
-				color: var(--danger-color); 
-				border-radius: 8px;
-				text-align: right;
-				position: relative; 
-				z-index: 0; /* th::after 보다 낮은 z-index (또는 td에 z-index를 주고 price-display는 auto) */
-			}
-
-			.final-cost-row .main-price {
-				font-size: calc(var(--font-size-xl) * 1.1);  /* 글자 크기 약간 증가 */
-				font-weight: var(--font-bold);
-			}
-
-			/* 날짜 선택 그룹 스타일 */
-			.date-group {
-				display: flex;
-				align-items: center;
-				gap: 8px;
-				width: 100%;
-			}
-
-			.date-inputs {
-				display: flex;
-				align-items: center;
-				gap: 8px;
-				flex: 3;
-			}
-
-			.date-inputs select {
-				flex: 1;
-			}
-
-			.time-select {
-				flex: 1;
-				min-width: 120px;
-			}
-
-			/* 모바일 대응 */
-			@media screen and (max-width: 768px) {
-				.price-display,
-				.discount-rate,
-				.discount-amount {
-					padding: 12px 16px;
-					font-size: var(--font-size-sm);
-					text-align: center;
-				}
-
-				select {
-					padding: 12px 16px;
-					font-size: var(--font-size-sm);
-				}
-
-				/* 날짜/시간 선택 UI 레이아웃 수정 */
-				.date-container {
-					display: flex;
-					flex-direction: column;
-					gap: 8px; /* .date-inputs와 .time-select 사이 간격 */
-					width: 100%;
-				}
-
-				.date-inputs { /* 연, 월, 일 select를 감싸는 컨테이너 */
-					display: flex;
-					flex-wrap: wrap; /* 내부 select 요소들이 줄바꿈되도록 함 */
-					width: 100%;
-					gap: 6px; /* 월과 일 select 사이 간격 */
-				}
-
-				.date-inputs select[id*="Year"] { /* ID에 Year가 포함된 select (연도) */
-					width: 100%; /* 한 줄 전체 차지 */
-					margin-bottom: 6px; /* 월/일 라인과의 간격 */
-				}
-
-				.date-inputs select[id*="Month"],
-				.date-inputs select[id*="Day"] {
-					flex: 1; /* 남은 공간을 월, 일이 나눠 가짐 */
-					min-width: 0; /* flex 아이템이 작아질 수 있도록 */
-				}
-
-				.time-select { /* 시간 select */
-					width: 100%; /* 한 줄 전체 차지 */
-					min-width: unset !important; /* PC 스타일의 min-width를 덮어쓰기 */
-				}
-			}
-
-			/* 셀렉트 박스 공통 스타일 강화 */
-			#roomType, #catCount {
-				text-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
-				font-weight: var(--font-semibold);
-				letter-spacing: -0.02em;
-			}
-
-			/* 객실 타입 선택 스타일 */
-			#roomType.family {
-				color: white;
-				background-color: var(--family-room-color);
-				border-color: var(--family-room-color);
-				text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-				font-weight: var(--font-bold);
-			}
-
-			#roomType.premier {
-				color: white;
-				background-color: var(--premier-room-color);
-				border-color: var(--premier-room-color);
-				text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-				font-weight: var(--font-bold);
-			}
-
-			#roomType.deluxe {
-				color: white;
-				background-color: var(--deluxe-room-color);
-				border-color: var(--deluxe-room-color);
-				text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-				font-weight: var(--font-bold);
-			}
-
-			#roomType.standard {
-				color: white;
-				background-color: var(--standard-room-color);
-				border-color: var(--standard-room-color);
-				text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-				font-weight: var(--font-bold);
-			}
-
-			#roomType.family:hover,
-			#roomType.premier:hover,
-			#roomType.deluxe:hover,
-			#roomType.standard:hover {
-				/* 호버 시에는 배경색을 약간 투명하게 하여 인터랙션 표시 */
-				/* 구체적인 투명도는 디자인에 맞춰 조정 가능 */
-				/* 예를 들어, 현재 배경색에서 alpha 값을 0.85 정도로 낮춤 */
-				/* 이 부분은 현재 요청과 직접 관련은 없으나, 포커스와 호버 스타일 일관성을 위해 고려할 수 있음 */
-				/* background-color: rgba(var(--warning-color-rgb), 0.12); 기존 호버 스타일은 모든 select에 적용됨 */
-				/* 각 타입별 호버 스타일은 아래처럼 개별 정의 필요 */
-			}
-
-			#roomType.family:hover {
-				background-color: rgba(var(--family-room-color-rgb), 0.85);
-			}
-			#roomType.premier:hover {
-				background-color: rgba(var(--premier-room-color-rgb), 0.85);
-			}
-			#roomType.deluxe:hover {
-				background-color: rgba(var(--deluxe-room-color-rgb), 0.85);
-			}
-			#roomType.standard:hover {
-				background-color: rgba(var(--warning-color-rgb), 0.85); /* standard는 warning color 사용 */
-			}
-
-			/* 묘 수 선택 스타일 */
-			#catCount.family {
-				background-color: rgba(39, 174, 96, 0.15);
-				color: var(--family-room-color);
-				border-color: rgba(39, 174, 96, 0.3);
-				font-weight: var(--font-bold);
-			}
-
-			#catCount.premier {
-				background-color: rgba(52, 152, 219, 0.15);
-				color: var(--premier-room-color);
-				border-color: rgba(52, 152, 219, 0.3);
-				font-weight: var(--font-bold);
-			}
-
-			#catCount.deluxe {
-				background-color: rgba(231, 76, 60, 0.15);
-				color: var(--deluxe-room-color);
-				border-color: rgba(231, 76, 60, 0.3);
-				font-weight: var(--font-bold);
-			}
-
-			#catCount.standard {
-				background-color: rgba(245, 166, 35, 0.15);
-				color: var(--standard-room-color);
-				border-color: rgba(245, 166, 35, 0.3);
-				font-weight: var(--font-bold);
-			}
-
-			/* 호버 효과 */
-			#catCount:hover {
-				transform: translateY(-1px);
-				box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-			}
-
-			/* 포커스 효과 */
-			#catCount:focus {
-				outline: none;
-				box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.3);
-			}
-
-			/* 상호작용 피드백 */
-			.highlight-change {
-				animation: highlight 0.6s ease-out;
-			}
-
-			@keyframes highlight {
-				0% {
-					background-color: rgba(44, 62, 80, 0.1);
-					transform: scale(1.02);
-				}
-				100% {
-					background-color: transparent;
-					transform: scale(1);
-				}
-			}
-
-			/* 접근성 개선 */
-			:focus-visible {
-				outline: 2px solid #2C3E50;
-				outline-offset: 2px;
-			}
-
-			.sr-only {
-				position: absolute;
-				width: 1px;
-				height: 1px;
-				padding: 0;
-				margin: -1px;
-				overflow: hidden;
-				clip: rect(0, 0, 0, 0);
-				border: 0;
-			}
-
-			[role="alert"] {
-				background-color: #FEF2F2;
-				color: #DC2626;
-				padding: 8px 12px;
-				border-radius: 6px;
-				margin-top: 4px;
-				font-size: 0.9em;
-			}
-
-			/* 모바일 대응 개선 */
-			@media screen and (max-width: 768px) {
-				.input-group {
-					padding: 16px;
-				}
-
-				.date-group {
-					flex-wrap: wrap;
-					gap: 6px;
-				}
-
-				select {
-					font-size: var(--font-size-sm);
-					padding: 12px 32px 12px 12px !important;
-					letter-spacing: -0.03em; /* 모바일에서 자간 더 줄임 */
-				}
-
-				.date-group select {
-					flex: 1;
-					min-width: 80px;
-				}
-			}
-			
-			.tblPrice, .tblPriceOutput {
-				width: 100%;
-				border-collapse: separate;
-				border-spacing: 0;
-				margin: 20px 0;
-				border-radius: 12px;
-				overflow: hidden;
-				box-shadow: 0 2px 8px var(--shadow-color);
-			}
-			
-			.tblPrice th, .tblPrice td,
-			.tblPriceOutput th, .tblPriceOutput td {
-				padding: 16px;
-				border: 1px solid var(--border-color);
-				font-size: var(--font-size-base);
-			}
-
-			.tblPriceOutput th {
-				background-color: var(--primary-color);
-				color: white;
-				font-weight: var(--font-semibold);
-				font-size: var(--font-size-base);
-			}
-
-			.tblPriceOutput td {
-				background-color: white;
-			}
-
-			/* 모바일 대응 미디어 쿼리 */
-			@media screen and (max-width: 768px) {
-				body {
-					padding: 12px;
-					background-color: #F5F8FA;
-					font-size: var(--font-size-sm);
-					min-width: 320px;  /* 최소 너비 설정 */
-					overflow-x: hidden;  /* 가로 스크롤 방지 */
-				}
-				
-				.container {
-					padding: 15px;
-					border-radius: 12px;
-					width: 100%;
-					max-width: 100%;
-					box-sizing: border-box;
-					overflow-x: hidden;
-				}
-				
-				h1 {
-					font-size: var(--font-size-3xl) !important;
-					margin: 20px 0;
-					word-break: keep-all;
-					line-height: 1.4;
-				}
-				
-				h3 {
-					font-size: var(--font-size-xl) !important;
-					margin: 15px 0;
-					word-break: keep-all;
-				}
-				
-				.ibmR {
-					font-size: 1em !important;
-					word-break: keep-all;
-				}
-				
-				.tblPrice {
-					font-size: var(--font-size-sm);
-				}
-
-				.tblPrice thead > tr > th,
-				.tblPrice tbody > tr > td {
-					padding: 10px 8px;
-				}
-				
-				.tblPriceInput tr {
-					margin-bottom: 12px;
-					border-radius: 12px;
-					box-shadow: 0 2px 6px var(--shadow-color);
-				}
-				
-				.tblPriceInput th {
-					padding: 14px;
-					background-color: var(--background-light);
-					border-radius: 12px 12px 0 0;
-					font-weight: 600;
-				}
-				
-				.tblPriceInput td {
-					padding: 16px !important;
-				}
-				
-				.tblPriceOutput tr {
-					margin-bottom: 10px;
-					border-radius: 12px;
-					overflow: hidden;
-				}
-
-				.tblPriceOutput th,
-				.tblPriceOutput td {
-					padding: 14px;
-				}
-
-				.tblRoomExp {
-					margin: 4px 0;
-					line-height: 1.4;
-				}
-
-				.highlight-change,
-				.price-change {
-					animation-duration: 0.4s;
-				}
-
-				#price, #totalPrice {
-					font-size: var(--font-size-2xl);
-				}
-
-				#useDays {
-					font-size: var(--font-size-lg);
-				}
-
-				.tblPriceThType {
-					font-size: var(--font-size-base);
-				}
-
-				.tblPriceThExp,
-				.tblRoomExp {
-					font-size: var(--font-size-xs);
-				}
-
-				.time-notice,
-				.time-notice-light {
-					font-size: var(--font-size-xs);
-				}
-
-				select option {
-					font-size: var(--font-size-sm);
-				}
-			}
-			
-			/* 제목 공통 스타일 */
+			/* --- 제목 및 구분선 --- */
 			h1, h3 {
 				position: relative;
 				padding-bottom: 12px;
-				margin-bottom: 24px;
+				margin-top: calc(var(--section-gap) * 1.5);
+				margin-bottom: var(--section-gap);
+				text-align:center;
+				color: var(--text-color);
 			}
-
-			/* 메인 타이틀 스타일 */
 			h1 {
 				font-size: var(--font-size-2xl);
-				color: var(--text-color);
-				text-align: center;
 				letter-spacing: -0.02em;
+				margin-top: var(--section-gap); /* 첫번째 H1은 상단 여백 기본값 */
 			}
-
 			h1::after {
 				content: '';
 				position: absolute;
@@ -701,2100 +963,748 @@
 				background: linear-gradient(to right, var(--premier-room-color), var(--family-room-color));
 				border-radius: 2px;
 			}
-
-			/* 섹션 타이틀 스타일 */
 			h3 {
 				font-size: var(--font-size-xl);
-				color: var(--text-color);
-				margin-top: 32px;
-				padding-left: 16px;
-				border-left: 4px solid var(--premier-room-color);
-				background: linear-gradient(to right, rgba(52, 152, 219, 0.05), transparent);
-				padding: 12px 16px;
-				border-radius: 4px;
+			}
+			.ibmR { font-family: "IBM Plex Sans KR", sans-serif; font-weight: var(--font-regular); font-style: normal; font-size: 1em; }
+			.ibmB { font-family: "IBM Plex Sans KR", sans-serif; font-weight: var(--font-bold); }
+
+			.section-divider {
+				height: 1px;
+				background-color: var(--border-color);
+				margin: calc(var(--section-gap) * 1.5) 0;
 			}
 
-			/* 호버 효과 */
-			h3:hover {
-				background: linear-gradient(to right, rgba(52, 152, 219, 0.1), transparent);
-				transform: translateX(5px);
-				transition: all 0.3s ease;
-			}
-
-			/* 모바일 대응 */
-			@media screen and (max-width: 768px) {
-				h1 {
-					font-size: var(--font-size-xl);
-				}
-				
-				h3 {
-					font-size: var(--font-size-lg);
-					padding: 10px 12px;
-				}
-			}
-			
-			h3 {
+			/* --- 테이블 공통 스타일 --- */
+			.tblPriceInput, .tblPriceOutput, .tblFinalPrice {
 				width: 100%;
-				text-align: center;
-				font-size: var(--font-size-2xl);
-				margin: 25px 0 20px;
-				color: var(--text-color);
-				font-weight: var(--font-semibold);
-				letter-spacing: -0.01em;
+				border-collapse: separate;
+				border-spacing: 0;
+				margin: var(--section-gap) 0;
 			}
-			
-			.ibmR {
-				font-family: "IBM Plex Sans KR", sans-serif;
-				font-weight: var(--font-regular);
-				font-style: normal;
-				font-size: 1.2em;
-			}
-			
-			.ibmB {
-				font-family: "IBM Plex Sans KR", sans-serif;
-				font-weight: var(--font-bold);
-			}
-			
-			.addEx {
-				background-color: var(--text-color);
-				color: white;
-				text-align: right;
-				font-size: var(--font-size-sm);
-				padding: 10px;
-				border-radius: 8px;
-				margin-bottom: 20px;
-				opacity: 0.8;
-			}
-			
-			.tblPrice thead > tr > th {
+			.tblPriceInput th, .tblPriceInput td {
+				padding: 16px;
 				border: 1px solid var(--border-color);
-				color: var(--text-color);
+				text-align: left;
+				vertical-align: middle;
 			}
-			
-			.tblPrice tbody > tr > td {
+			.tblPriceInput th {
+				width: 30%;
+				background-color: var(--background-light);
+				font-weight: var(--font-medium);
+			}
+
+			/* --- 입력 요소 (select 등) --- */
+			select {
+				appearance: none;
+				-webkit-appearance: none;
+				width: 100%;
+				padding: var(--input-padding);
 				border: 1px solid var(--border-color);
+				border-radius: var(--input-border-radius);
+				background-color: white;
 				color: var(--text-color);
-				padding: 12px;
+				font-size: var(--font-size-base);
+				cursor: pointer;
+				transition: all 0.2s ease;
+				background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath fill='%23495057' d='M4.646 6.146a.5.5 0 0 1 .708 0L8 8.793l2.646-2.647a.5.5 0 0 1 .708.708l-3 3a.5.5 0 0 1-.708 0l-3-3a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E");
+				background-repeat: no-repeat;
+				background-position: right 12px center;
+				background-size: 16px;
 			}
-			
-			.tblPriceThType {
-				color: white;
-				font-weight: var(--font-semibold);
-				margin: 0;
-				padding: 12px 0;
-				text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
-				font-size: var(--font-size-lg);
-			}
-			
-			.tblPriceThExp {
-				font-size: var(--font-size-sm);
-				font-style: italic;
-				color: #666666;
-				text-align: center;
-				margin: 6px 0;
-			}
-			
-			.tblRoomExp {
-				font-size: var(--font-size-sm);
-				color: #666666;
-				text-align: center;
-				margin: 6px 0;
-				line-height: 1.4;
-			}
-
-			/* 투숙 비용 관련 스타일 */
-			.subtotal-row th {
-				background-color: var(--secondary-color) !important;
-				color: white !important;
-				font-size: 1.1em;
-			}
-
-			.subtotal-row td {
-				background-color: rgba(80, 227, 194, 0.05) !important;
-			}
-
-			#price {
-				font-weight: var(--font-bold);
-				font-size: var(--font-size-xl);
-				color: var(--secondary-color);
-				text-align: right;
-				padding: 8px 12px;
-				background-color: rgba(80, 227, 194, 0.1);
-				border-radius: 8px;
-				display: inline-block;
-				margin: 0;
-				min-width: 150px;
-			}
-
-			.final-cost-row th {
-				background-color: var(--danger-color) !important;
-				color: white !important;
-				font-size: 1.1em;
-			}
-
-			.final-cost-row td {
-				background-color: rgba(255, 90, 95, 0.05) !important;
-			}
-
-			#totalPrice {
-				font-weight: var(--font-bold);
-				font-size: var(--font-size-xl);
-				color: var(--danger-color);
-				text-align: right;
-				padding: 8px 12px;
-				background-color: rgba(255, 90, 95, 0.1);
-				border-radius: 8px;
-				display: inline-block;
-				margin: 0;
-				min-width: 150px;
-			}
-
-			@media screen and (max-width: 768px) {
-				#price, #totalPrice {
-					font-size: var(--font-size-2xl);
-					padding: 10px 15px;
-					width: 100%;
-					text-align: center;
-				}
-
-				#price {
-					box-shadow: 0 2px 4px rgba(80, 227, 194, 0.2);
-				}
-
-				#totalPrice {
-					box-shadow: 0 2px 4px rgba(255, 90, 95, 0.2);
-				}
-
-				.subtotal-row th,
-				.subtotal-row td,
-				.final-cost-row th,
-				.final-cost-row td {
-					padding: 16px !important;
-				}
-			}
-
-			/* 객실 타입별 색상 */
-			.room-family {
-				background-color: var(--family-room-color) !important;
-			}
-			.room-premier {
-				background-color: var(--premier-room-color) !important;
-			}
-			.room-deluxe {
-				background-color: var(--deluxe-room-color) !important;
-			}
-			.room-standard {
-				background-color: var(--standard-room-color) !important;
-			}
-
-			/* 할인 관련 스타일 */
-			.discount-highlight {
-				color: var(--danger-color);
-				font-weight: 600;
-			}
-
-			/* 이용 일수 스타일 */
-			.days-row th {
-				background-color: var(--primary-color) !important;
-				color: white !important;
-				font-size: 1.1em;
-			}
-
-			.days-row td {
-				background-color: rgba(74, 144, 226, 0.05) !important;
-			}
-
-			#useDays {
-				font-weight: var(--font-semibold);
-				font-size: var(--font-size-lg);
-				color: var(--primary-color);
-				text-align: right;
-				padding: 8px 12px;
-				background-color: rgba(74, 144, 226, 0.1);
-				border-radius: 8px;
-				display: inline-block;
-				margin: 0;
-				min-width: 100px;
-			}
-
-			/* 변경 효과 */
-			.price-change {
-				animation: price-highlight 0.6s ease-out;
-			}
-
-			@keyframes price-highlight {
-				0% {
-					background-color: rgba(255, 90, 95, 0.2);
-					transform: translateY(-1px);
-				}
-				100% {
-					background-color: transparent;
-					transform: translateY(0);
-				}
-			}
-
-			/* 입력 요소 포커스 효과 */
 			select:hover {
 				border-color: var(--warning-color);
-				background-color: rgba(var(--warning-color-rgb), 0.05);
+			}
+			select:focus {
+				outline: none;
+				border-color: var(--primary-color); 
+				box-shadow: 0 0 0 3px rgba(var(--primary-color), 0.25); 
 			}
 
-			/* 시간 선택 스타일 추가 */
-			.time-notice-light {
-				color: var(--primary-color);
-				font-size: var(--font-size-sm);
-				font-weight: var(--font-medium);
-			}
-
-			/* 시간 선택 스타일 추가 */
-			option.time-notice {
-				color: var(--danger-color) !important;
+			/* 객실 타입/묘수 select 특별 스타일 */
+			#roomType, #catCount {
 				font-weight: var(--font-semibold);
 			}
-
-			select option {
-				color: var(--text-color);
-				font-weight: var(--font-regular);
+			#roomType.family, #catCount.family {
+				background-color: var(--family-room-color);
+				color: white;
+				border-color: var(--family-room-color);
+				background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath fill='%23FFFFFF' d='M4.646 6.146a.5.5 0 0 1 .708 0L8 8.793l2.646-2.647a.5.5 0 0 1 .708.708l-3 3a.5.5 0 0 1-.708 0l-3-3a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E");
+			}
+			#roomType.premier, #catCount.premier {
+				background-color: var(--premier-room-color);
+				color: white;
+				border-color: var(--premier-room-color);
+				background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath fill='%23FFFFFF' d='M4.646 6.146a.5.5 0 0 1 .708 0L8 8.793l2.646-2.647a.5.5 0 0 1 .708.708l-3 3a.5.5 0 0 1-.708 0l-3-3a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E");
+			}
+			#roomType.deluxe, #catCount.deluxe {
+				background-color: var(--deluxe-room-color);
+				color: white;
+				border-color: var(--deluxe-room-color);
+				background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath fill='%23FFFFFF' d='M4.646 6.146a.5.5 0 0 1 .708 0L8 8.793l2.646-2.647a.5.5 0 0 1 .708.708l-3 3a.5.5 0 0 1-.708 0l-3-3a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E");
+			}
+			#roomType.standard, #catCount.standard {
+				background-color: var(--standard-room-color);
+				color: white;
+				border-color: var(--standard-room-color);
+				background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath fill='%23FFFFFF' d='M4.646 6.146a.5.5 0 0 1 .708 0L8 8.793l2.646-2.647a.5.5 0 0 1 .708.708l-3 3a.5.5 0 0 1-.708 0l-3-3a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E");
 			}
 
-			/* 시간 조정 안내 스타일 */
-			.time-adjust-notice.late-checkin {
-				color: var(--warning-color);
+			#roomType.family:focus { border-color: var(--family-room-color); box-shadow: 0 0 0 3px rgba(var(--family-room-color), 0.3); }
+			#roomType.premier:focus { border-color: var(--premier-room-color); box-shadow: 0 0 0 3px rgba(var(--premier-room-color), 0.3); }
+			#roomType.deluxe:focus { border-color: var(--deluxe-room-color); box-shadow: 0 0 0 3px rgba(var(--deluxe-room-color), 0.3); }
+			#roomType.standard:focus { border-color: var(--standard-room-color); box-shadow: 0 0 0 3px rgba(var(--standard-room-color), 0.3); }
+
+			/* PC용 날짜/시간 선택 레이아웃 */
+			.date-container {
+				display: flex;
+				flex-direction: column; /* 세로로 쌓기: 년 / (월+일) / 시간 */
+				gap: 8px; /* 각 줄 사이 간격 */
+				width: 100%; /* 부모 td에 꽉 차도록 */
 			}
 
-			.time-adjust-notice.early-checkout {
-				color: var(--danger-color);
+			.year-select,
+			.time-select {
+				width: 100%;
+				box-sizing: border-box;
 			}
 
-			.time-adjust-divider {
-				color: var(--text-color);
-				margin: 0 6px;
-				opacity: 0.3;
+			.month-day-wrapper {
+				display: flex;
+				gap: 8px;
+				width: 100%;
 			}
 
-			/* 계산 결과 테이블 스타일 개선 */
+			.month-day-wrapper .month-select,
+			.month-day-wrapper .day-select {
+				flex: 1;
+				box-sizing: border-box;
+			}
+
+			/* --- 가격 표시 부분 --- */
 			.tblPriceOutput {
-				border: 1px solid #E2E8F0;
-				border-radius: 12px;
+				border-radius: var(--card-border-radius);
 				overflow: hidden;
-				box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+				box-shadow: 0 2px 8px var(--shadow-color);
+				border: 1px solid var(--border-color);
 			}
-
-			.tblPriceOutput tr th,
-			.tblPriceOutput tr td {
+			.tblPriceOutput th, .tblPriceOutput td {
 				padding: 16px 24px;
-				border-bottom: 1px solid #E2E8F0;
+				border-bottom: 1px solid var(--border-color);
 				line-height: 1.5;
+				text-align: left;
+				vertical-align: middle;
 			}
-
-			.tblPriceOutput tr th {
-				background-color: #2C3E50;
+			.tblPriceOutput th {
+				background-color: var(--text-color);
 				color: white;
 				font-weight: var(--font-medium);
-				text-align: left;
 				width: 35%;
 			}
-
-			.tblPriceOutput tr.final-cost-row th {
-				background-color: #1a2533;
-			}
-
 			.tblPriceOutput td {
 				background-color: #FFFFFF;
 				text-align: right;
 				width: 65%;
 			}
-
-			.tblPriceOutput tr:last-child th,
-			.tblPriceOutput tr:last-child td {
+			.tblPriceOutput tr:last-child th, .tblPriceOutput tr:last-child td {
 				border-bottom: none;
 			}
-
-			.tblPriceOutput tr:hover td {
-				background-color: #F8FAFC;
-			}
-
-			/* 금액 표시 스타일 */
-			#roomPrice, #useDays, #price {
-				color: #2C3E50;
-				font-weight: var(--font-medium);
-			}
-
-			.discount-info {
+			.price-display { /* p 태그 감싸는 용도 */
 				display: flex;
-				align-items: center;
-				justify-content: flex-end;
-				gap: 12px;
+				flex-direction: column;
+				align-items: flex-end;
+				gap: 4px;
 			}
-
-			.discount-rate {
-				background-color: rgba(74, 144, 226, 0.1);
-				padding: 6px 12px;
-				border-radius: 6px;
-				color: #4A90E2;
-				font-weight: var(--font-medium);
-			}
-
-			.discount-amount {
-				color: #5C9EE6;
-				font-weight: var(--font-medium);
-			}
-
-			#totalPrice {
-				color: #1a2533;
+			.price-display .main-price {
 				font-weight: var(--font-bold);
+				font-size: var(--font-size-lg);
+			}
+			.price-display .price-notice { /* 객실 단가 아래 "00원, 기준 0마리" 부분 */
+				font-size: var(--font-size-sm);
+				color: #7f8c9b;
+				margin-top: 0; 
+				line-height: 1.3; 
+			}
+			.discount-info { 
+				display: flex; 
+				align-items: stretch; /* center에서 stretch로 변경하여 높이 통일 시도 */
+				justify-content: flex-end; 
+				border-radius: 6px !important; 
+				overflow: hidden !important; 
+				font-weight: var(--font-medium);
+			}
+			#discountRate { 
+				display: inline-block !important; 
+				background-color: var(--warning-color) !important; 
+				padding: 8px 12px !important; 
+				border-top-left-radius: 6px !important;
+				border-bottom-left-radius: 6px !important;
+				border-top-right-radius: 0 !important;
+				border-bottom-right-radius: 0 !important;
+				color: white !important; 
+				font-weight: var(--font-medium);
+				line-height: 1.5; 
+			}
+			#discountAmount { 
+				display: inline-block !important; 
+				background-color: #FFB74D !important; /* 밝은 주황색으로 변경 (예: #FFB74D) */
+				padding: 8px 12px !important; 
+				border-top-right-radius: 6px !important;
+				border-bottom-right-radius: 6px !important;
+				border-top-left-radius: 0 !important;
+				border-bottom-left-radius: 0 !important;
+				color: white !important; /* 밝은 배경에도 흰색 글씨가 잘 보일지 확인 필요, 안보이면 var(--text-color) 등으로 변경 */ 
+				font-weight: var(--font-medium);
+				line-height: 1.5; 
 			}
 
-			/* 모바일 대응 */
-			@media screen and (max-width: 768px) {
-				.tblPriceOutput tr th,
-				.tblPriceOutput tr td {
-					padding: 14px 16px;
-				}
-
-				.tblPriceOutput tr th {
-					width: 40%;
-				}
-
-				.tblPriceOutput td {
-					width: 60%;
-				}
-
-				.discount-info {
-					gap: 8px;
-				}
-
-				.discount-rate {
-					padding: 4px 10px;
-				}
+			.tblFinalPrice {
+				border-radius: var(--card-border-radius); 
+				overflow: hidden; 
+				border: 3px solid var(--danger-color); 
+				box-shadow: 0 4px 12px rgba(var(--danger-color), 0.25);
 			}
-
-			/* 입력 폼 개선 */
-			select:focus {
-				outline: none;
-				border-color: var(--warning-color);
-				box-shadow: 0 0 0 3px rgba(var(--warning-color-rgb), 0.1);
-				transform: translateY(-1px);
+			.final-cost-row th {
+				background-color: var(--danger-color) !important;
+				color: white !important;
+				font-weight: var(--font-bold);
+				font-size: var(--font-size-xl);
+				width: 35%;
+				text-align: left;
+				padding: 20px;
+				vertical-align: middle;
 			}
-
-			select:hover {
-				border-color: var(--warning-color);
-				background-color: rgba(var(--warning-color-rgb), 0.05);
+			.final-cost-row td {
+				width: 65%;
+				background-color: white; 
+				padding: 20px 30px;
+				vertical-align: middle;
+				text-align: right;
 			}
-
-			/* 애니메이션 개선 */
-			.highlight-change {
-				animation: highlight 0.6s ease-out;
+			.final-cost-row .price-display .main-price {
+				color: var(--danger-color);
+				font-size: calc(var(--font-size-xl) * 1.15);
+				transition: color 0.3s ease-out; /* 색상 복귀 시 부드럽게 */
 			}
-
-			@keyframes highlight {
-				0% {
-					background-color: rgba(44, 62, 80, 0.1);
-					transform: scale(1.02);
-				}
-				100% {
-					background-color: transparent;
-					transform: scale(1);
-				}
+			.room-type-text { /* 결과 테이블의 객실 이름 태그 */
+				display: inline-block;
+				padding: 4px 10px;
+				border-radius: 15px;
+				font-weight: var(--font-semibold);
+				color: white;
+				font-size: var(--font-size-sm);
+				vertical-align: middle;
+				margin-right: 8px;
 			}
+			.room-type-text.family { background-color: var(--family-room-color); }
+			.room-type-text.premier { background-color: var(--premier-room-color); }
+			.room-type-text.deluxe { background-color: var(--deluxe-room-color); }
+			.room-type-text.standard { background-color: var(--standard-room-color); }
 
-			/* 크레딧 스타일 */
-			.credit-info {
-				text-align: center;
-				font-size: var(--font-size-xs);
-				color: var(--text-color);
-				opacity: 0.7;
-				margin-top: 30px;
-				padding: 15px;
-				border-top: 1px solid var(--border-color);
-				cursor: pointer;
-				transition: opacity 0.3s ease;
-			}
-
-			.credit-info:hover {
-				opacity: 1;
-			}
-
-			@media screen and (max-width: 768px) {
-				.credit-info {
-					margin-top: 20px;
-					padding: 10px;
-					font-size: calc(var(--font-size-xs) * 0.9);
-				}
-			}
-
-			/* 공유 버튼 스타일 */
+			/* --- 하단 공유 버튼 --- */
 			.share-buttons {
 				display: flex;
-				gap: 10px;
-				justify-content: center;
-				margin-top: 20px;
+				justify-content: center; 
+				align-items: stretch; 
+				gap: 12px; 
+				margin-top: calc(var(--section-gap) * 1.5);
+				margin-bottom: var(--section-gap);
+				padding: var(--section-gap) 0;
+				border-top: 1px solid var(--border-color);
+				border-bottom: 1px solid var(--border-color);
 			}
-
 			.share-button {
-				display: inline-flex;
+				flex: 1 1 auto; 
+				max-width: 260px; 
+				padding: var(--button-padding);
+				border: 1px solid var(--primary-color);
+				border-radius: 25px; /* 둥근 모서리 */
+				background-color: white; 
+				color: var(--primary-color);
+				font-size: var(--font-size-base); 
+				font-weight: var(--font-medium);
+				text-align: center;
+				cursor: pointer;
+				transition: all 0.2s ease;
+				display: inline-flex; 
 				align-items: center;
 				justify-content: center;
-				gap: 8px;
+				gap: 8px; 
+				box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+			}
+			.share-button:hover {
+				background-color: var(--primary-color); 
+				color: white; 
+				box-shadow: 0 3px 8px rgba(var(--primary-color), 0.2);
+				transform: translateY(-1px);
+			}
+			.share-button .fas {
+				font-size: 1em; 
+			}
+
+			/* --- 객실 타입별 기본 요금표 --- */
+			.price-section { 
+				display: flex;
+				flex-wrap: wrap; /* PC에서도 화면 너비 부족 시 줄바꿈 허용 (min-width에 의해) */
+				/* gap: var(--section-gap); /* space-between으로 대체되므로 PC에서는 제거 */
+				justify-content: space-between; /* 카드들을 균등하게 분배 */
+				margin-top: var(--section-gap);
+				margin-bottom: var(--section-gap);
+				overflow-x: visible;
+				/* padding-bottom: 10px; /* 스크롤바 여백 불필요 */
+			}
+			.room-card { 
+				background-color: #fff;
+				border: 1px solid var(--border-color);
+				border-radius: var(--card-border-radius);
+				padding: 0; 
+				box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+				display: flex;
+				flex-direction: column;
+				transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+				flex-grow: 0; 
+				flex-shrink: 0; 
+				flex-basis: 23%; /* 값을 더 줄여서 테스트 */
+				min-width: 170px; /* 최소 너비도 약간 줄여서 유연성 확보 */
+				overflow: hidden; 
+				box-sizing: border-box; /* box-sizing 추가 */
+			}
+			.room-card:hover {
+				transform: translateY(-4px);
+				box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+			}
+			.room-header {
+				padding: 18px; /* 패딩 약간 줄임 */
+				margin-bottom: 0; 
+				text-align: center;
+				color: white; 
+			}
+			.room-header.family { background-color: var(--family-room-color); }
+			.room-header.premier { background-color: var(--premier-room-color); }
+			.room-header.deluxe { background-color: var(--deluxe-room-color); }
+			.room-header.standard { background-color: var(--standard-room-color); }
+
+			.room-header .tblPriceThType {
+				font-size: calc(var(--font-size-xl) * 0.9); /* 폰트 크기 약간 줄임 */
+				font-weight: var(--font-semibold);
+				margin-bottom: 6px; /* 마진 약간 줄임 */
+			}
+			.room-header .room-price {
+				font-size: calc(var(--font-size-lg) * 0.9); /* 폰트 크기 약간 줄임 */
+				font-weight: var(--font-medium);
+				margin-bottom: 3px; /* 마진 약간 줄임 */
+			}
+			.room-header .room-base {
+				font-size: calc(var(--font-size-sm) * 0.95); /* 폰트 크기 약간 줄임 */
+			}
+			.room-features {
+				padding: 18px; /* 패딩 약간 줄임 */
+				flex-grow: 1;
+			}
+			.feature-list {
+				list-style: none;
+				padding: 0;
+				margin: 0;
+				font-size: var(--font-size-base);
+			}
+			.feature-list li {
+				padding: 6px 0;
+				border-bottom: 1px dashed #eee;
+				color: #555;
+			}
+			.feature-list li:last-child { border-bottom: none; }
+			.feature-list li::before {
+				content: "✓";
+				color: var(--secondary-color);
+				margin-right: 8px;
+				font-weight: bold;
+			}
+			.recommend-text {
+				font-weight: var(--font-semibold);
+				color: var(--primary-color);
+			}
+			/* price-section 바로 다음의 .price-notice (추가 고양이 요금 안내) */
+			.price-notice { 
+				text-align: right;
+				font-size: var(--font-size-sm);
+				color: var(--danger-color);
+				background-color: rgba(var(--danger-color), 0.07);
+				padding: 10px 15px;
+				border-radius: 8px;
+				margin-top: var(--section-gap);
+				border: 1px solid rgba(var(--danger-color), 0.15);
+			}
+
+			/* --- 플로팅 메뉴 --- */
+			#floatingMenuButton {
+				position: fixed;
+				bottom: 20px;
+				right: 20px;
+				width: 60px;
+				height: 60px;
 				background-color: var(--primary-color);
 				color: white;
 				border: none;
-				border-radius: 8px;
-				padding: 10px 20px;
-				font-size: var(--font-size-base);
-				font-weight: var(--font-medium);
+				border-radius: 50%;
+				font-size: 24px;
+				display: flex;
+				justify-content: center;
+				align-items: center;
 				cursor: pointer;
-				transition: all 0.2s ease;
+				box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+				z-index: 1001;
+				transition: transform 0.2s ease-out, background-color 0.2s ease;
+			}
+			#floatingMenuButton:hover {
+				background-color: #3a7ac8;
+				transform: scale(1.1);
+			}
+			#floatingMenu {
+				position: fixed;
+				bottom: 90px; 
+				right: 20px;
+				width: 300px;
+				max-height: 70vh; 
+				overflow-y: auto; 
+				background-color: white;
+				border-radius: var(--card-border-radius);
+				box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+				z-index: 1000;
+				padding: var(--section-gap);
+				box-sizing: border-box;
+				opacity: 0;
+				transform: translateY(20px) scale(0.95);
+				visibility: hidden;
+				transition: opacity 0.3s ease-out, transform 0.3s ease-out, visibility 0.3s;
+			}
+			#floatingMenu.active {
+				opacity: 1;
+				transform: translateY(0) scale(1);
+				visibility: visible;
+			}
+			/* 플로팅 메뉴 내부 버튼/토글 */
+			.info-buttons { display: flex; flex-direction: column; gap: 10px; }
+			.info-button {
+				display: flex;
+				align-items: center;
+				gap: 10px;
+				padding: 10px 15px;
+				border: 1px solid var(--border-color);
+				border-radius: var(--input-border-radius);
+				background-color: transparent;
+				color: var(--text-color);
+				font-size: var(--font-size-base);
+				text-align: left;
+				cursor: pointer;
+				transition: background-color 0.2s, color 0.2s;
+			}
+			.info-button:hover { background-color: var(--background-light); color: var(--primary-color); }
+			.info-button .fas { width: 18px; text-align: center; }
+			.info-button.reservation { background-color: var(--primary-color); color: white; border-color: var(--primary-color); }
+			.info-button.reservation:hover { background-color: #3a7ac8; }
+
+			.floating-toggle-section { margin-top: 15px; border-top: 1px solid var(--border-color); padding-top: 15px; }
+			.floating-toggle-trigger {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				cursor: pointer;
+				padding: 8px 0; /* 상하 여백 약간 줄임 */
+				font-weight: var(--font-semibold);
+				color: var(--text-color);
+				font-size: var(--font-size-base); /* 기본 폰트 크기로 */
+			}
+			.floating-toggle-trigger .arrow { font-size: var(--font-size-xs); transition: transform 0.3s ease; }
+			.floating-toggle-trigger.active .arrow { transform: rotate(180deg); }
+			.icon-cat-leaf { /* 고양이 백과사전 아이콘 */
+				display: inline-block; width: 1em; height: 1em; margin-right: 8px; vertical-align: -0.125em;
+				background-color: currentColor;
+				-webkit-mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="currentColor" d="M256 32C114.6 32 0 125.1 0 240c0 49.6 21.4 95 57 130.7C44.5 421.1 2.7 466 2.2 466.5c-2.2 2.3-2.8 5.7-1.5 8.7S4.8 480 8 480c66.3 0 116-31.8 146.3-72.5C173.1 416.5 213.2 424 256 424c141.4 0 256-93.1 256-208S397.4 8 256 8zM128 248c-17.7 0-32-14.3-32-32s14.3-32 32-32 32 14.3 32 32-14.3 32-32 32zm128 0c-17.7 0-32-14.3-32-32s14.3-32 32-32 32 14.3 32 32-14.3 32-32 32zm128 0c-17.7 0-32-14.3-32-32s14.3-32 32-32 32 14.3 32 32-14.3 32-32 32z"/></svg>');
+				mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="currentColor" d="M256 32C114.6 32 0 125.1 0 240c0 49.6 21.4 95 57 130.7C44.5 421.1 2.7 466 2.2 466.5c-2.2 2.3-2.8 5.7-1.5 8.7S4.8 480 8 480c66.3 0 116-31.8 146.3-72.5C173.1 416.5 213.2 424 256 424c141.4 0 256-93.1 256-208S397.4 8 256 8zM128 248c-17.7 0-32-14.3-32-32s14.3-32 32-32 32 14.3 32 32-14.3 32-32 32zm128 0c-17.7 0-32-14.3-32-32s14.3-32 32-32 32 14.3 32 32-14.3 32-32 32zm128 0c-17.7 0-32-14.3-32-32s14.3-32 32-32 32 14.3 32 32-14.3 32-32 32z"/></svg>');
+				background-repeat: no-repeat; background-size: contain;
+			}
+			.floating-link-group { max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out, padding-top 0.3s ease-out, padding-bottom 0.3s ease-out; padding: 0 10px; }
+			.floating-link-group.open { max-height: 400px; padding-top: 5px; padding-bottom: 10px; }
+			.floating-link-group ul { list-style: none; padding: 0; margin: 0; }
+			.floating-link-group li a {
+				display: block; padding: 8px 5px; color: var(--primary-color); text-decoration: none;
+				border-radius: 4px; transition: background-color 0.2s ease; font-size: var(--font-size-sm);
+			}
+			.floating-link-group li a:hover { background-color: rgba(var(--primary-color), 0.1); }
+			#floatingMenu::-webkit-scrollbar { width: 5px; }
+			#floatingMenu::-webkit-scrollbar-thumb { background-color: var(--border-color); border-radius: 3px; }
+			#floatingMenu::-webkit-scrollbar-track { background-color: transparent; }
+
+
+			/* --- 반응형 스타일 --- */
+			@media (max-width: 768px) {
+				body { padding: var(--mobile-padding); font-size: calc(var(--font-size-base) * 0.95); }
+				.container { padding: var(--mobile-padding); }
+
+				/* 모바일에서 table th 텍스트 줄바꿈 방지 및 너비 고정 */
+				.tblPriceOutput th,
+				.final-cost-row th {
+					white-space: nowrap;
+					width: 125px; /* 모바일에서 th 너비 고정 (값은 조정 필요) - 110px에서 늘림 */
+					overflow: hidden;
+					text-overflow: ellipsis; /* 내용이 넘칠 경우 말줄임표 */
+					/* text-align: left; */ /* 기본값이 left이므로 필요시 주석 해제 */
+				}
+				.tblPriceOutput td,
+				.final-cost-row td {
+					width: calc(100% - 125px); /* th 너비를 제외한 나머지 공간 - 110px에서 늘림 */
+				}
+				
+				/* 모바일에서 .price-display 가로 정렬 및 줄바꿈 허용 */
+				.price-display {
+					flex-direction: row; /* 가로로 배치 */
+							flex-wrap: wrap; /* 내용이 길면 줄바꿈 허용 */
+							align-items: baseline; /* 텍스트 기준선 정렬 */
+							justify-content: flex-end; /* 오른쪽 정렬 유지 */
+							gap: 6px; /* 메인 가격과 부가 정보 사이 간격 */
+				}
+				/* 더 구체적인 선택자로 강제 적용 시도 */
+				.tblPriceOutput tr:not(.days-row) td .price-display, /* .days-row를 제외한 나머지 행 */
+				.final-cost-row td .price-display {
+					flex-direction: row !important; /* 강제 가로 배치 */
+				}
+
+				/* 이용일수(days-row)의 price-display는 세로 정렬 */
+				.tblPriceOutput .days-row td .price-display {
+					flex-direction: column !important; /* 세로 정렬 강제 */
+					align-items: flex-end; /* 오른쪽 정렬 유지 */
+				}
+				
+				.month-day-wrapper {
+					flex-direction: row; /* 모바일에서도 월, 일을 가로로 배치 */
+					gap: 8px; /* PC와 동일하게 월/일 사이 간격 유지 */
+				}
+				.year-select, 
+				.time-select { 
+					width: 100%; 
+				}
+				.month-day-wrapper .month-select,
+				.month-day-wrapper .day-select {
+					flex: 1; /* 월, 일이 month-day-wrapper 내에서 공간을 균등하게 차지 */
+				}
+
+				.final-cost-row th { font-size: var(--font-size-lg); padding: 15px; }
+				.final-cost-row td { padding: 15px; }
+				.final-cost-row .price-display .main-price { font-size: var(--font-size-lg); }
+
+				/* 객실 카드 모바일: 한 줄에 2개씩 */
+				.price-section {
+					/* flex-wrap: wrap; /* PC에서도 wrap이므로 유지 */
+					justify-content: flex-start; /* 모바일에서는 왼쪽 정렬 후 wrap */
+					gap: var(--mobile-padding); /* 모바일에서 카드 사이 간격 다시 적용 */
+				}
+				.room-card {
+					flex-grow: 1; /* 모바일에서는 카드가 유연하게 늘어날 수 있도록 */
+					flex-shrink: 1;
+					flex-basis: calc(50% - (var(--mobile-padding) / 2)); 
+					min-width: calc(50% - (var(--mobile-padding) / 2)); 
+				}
+
+				.share-buttons { flex-direction: column; gap: 10px; }
+				.share-button { width: 100%; max-width: none; }
+
+				#floatingMenuButton { width: 50px; height: 50px; font-size: 20px; bottom: 15px; right: 15px; }
+				#floatingMenu { width: calc(100% - 30px); bottom: 75px; right: 15px; max-height: 60vh; padding: var(--mobile-padding); }
 			}
 
-			.share-button:hover {
-				transform: translateY(-1px);
-				box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+			@media (max-width: 480px) {
+				h1 { font-size: var(--font-size-xl); }
+				h3 { font-size: var(--font-size-lg); }
+
+				.tblPriceOutput th, .tblPriceOutput td { padding: 10px 12px; }
+				.price-display .price-notice { font-size: var(--font-size-xs); padding: 3px 8px; }
+				.discount-rate { padding: 4px 8px; font-size: var(--font-size-xs); }
+
+				/* 더 작은 모바일 화면: 객실 카드 한 줄에 1개씩 */
+				.room-card {
+					flex-basis: 100%;
+					min-width: 100%; 
+				}
 			}
 
-			.share-button.copy {
-				background-color: var(--secondary-color);
-			}
-
-			.share-button.image {
-				background-color: var(--family-room-color);
-			}
-
-			.share-button i {
-				font-size: 1.2em;
-			}
-
+			/* 복사 완료 피드백 (필요시 유지) */
 			.copy-feedback {
 				position: fixed;
 				bottom: 20px;
 				left: 50%;
 				transform: translateX(-50%);
-				background-color: rgba(0, 0, 0, 0.8);
+				background-color: var(--text-color);
 				color: white;
-				padding: 10px 20px;
-				border-radius: 20px;
-				font-size: var(--font-size-sm);
+				padding: 12px 24px; /* 패딩 조정 */
+				border-radius: 8px;
+				box-shadow: 0 4px 15px rgba(0,0,0,0.25); /* 그림자 강화 */
+				z-index: 2000;
 				opacity: 0;
-				transition: opacity 0.3s ease;
+				visibility: hidden;
+				font-size: var(--font-size-base); /* 폰트 크기 명시 */
+				transition: opacity 0.3s ease, visibility 0.3s ease, bottom 0.3s ease;
 			}
-
 			.copy-feedback.show {
 				opacity: 1;
+				visibility: visible;
+				bottom: 40px;
 			}
 
-			@media screen and (max-width: 768px) {
-				.share-buttons {
-					flex-direction: column;
-					padding: 0 20px;
-				}
-
-				.share-button {
-					width: 100%;
-					padding: 12px;
-				}
+			/* 추가 고양이 요금 안내 문구 위치 조정 - .price-section 다음에 올 때 */
+			.container > .price-notice {
+				margin-top: var(--section-gap);
+				margin-bottom: var(--section-gap); 
+				/* 다른 스타일은 위에 정의된 .price-notice 공통 스타일 따름 */
 			}
 
-			/* 요금표 스타일 개선 */
-			.price-section {
-				display: grid;
-				grid-template-columns: repeat(4, 1fr);
-				gap: 20px;
-				margin: 20px 0;
+			/* .main-price 요소에 직접 애니메이션 적용 */
+			.highlight-change .main-price,
+			.price-display.highlight-change .main-price,
+			#stayDuration.highlight-change .main-price, 
+			#roomPrice.highlight-change .main-price,
+			#finalPrice.highlight-change .main-price,
+			/* 아래 요소들은 .main-price 자식이 없을 수 있으므로, 요소 자체에 애니메이션 적용 */
+			#subtotalPrice.highlight-change, 
+			#discountAmount.highlight-change,
+			#discountRate.highlight-change /* 할인율 표시 span 에도 적용 */
+			{ 
+				animation: blink-text-color 0.7s ease-out;
+				outline: none !important; /* 애니메이션 대상 요소의 outline도 확실히 제거 */
 			}
 
-			.room-card {
-				position: relative;
-				border-radius: 12px;
-				overflow: hidden;
+			@keyframes blink-text-color {
+				0% { color: var(--warning-color); }
+				50% { color: var(--warning-color); } 
+				100% { /* 최종 색상은 각 요소의 원래 색상으로 돌아감 (JS 또는 기본 스타일) */ }
+			}
+
+			/* 이미지 저장용 임시 요소 스타일 */
+			.image-capture-wrapper {
 				background: white;
-				box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-				transition: all 0.3s ease;  /* 부드러운 전환 효과 */
-				cursor: pointer;  /* 클릭 가능함을 표시 */
-				transform-origin: center;  /* 변형의 중심점 설정 */
-			}
-
-			/* 호버 효과 */
-			.room-card:hover {
-				transform: translateY(-5px) scale(1.02);  /* 위로 살짝 뜨면서 확대 */
-				box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);  /* 그림자 강화 */
-				z-index: 1;  /* 다른 카드 위에 표시 */
-			}
-
-			/* 클릭 효과 */
-			.room-card:active {
-				transform: translateY(-2px) scale(1.01);  /* 클릭시 약간 작아짐 */
-				box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
-			}
-
-			/* 각 룸 타입별 호버 효과 */
-			.room-card:hover .room-header.family {
-				background-color: rgba(39, 174, 96, 0.9);  /* 패밀리룸 색상 */
-			}
-
-			.room-card:hover .room-header.premier {
-				background-color: rgba(52, 152, 219, 0.9);  /* 프리미어룸 색상 */
-			}
-
-			.room-card:hover .room-header.deluxe {
-				background-color: rgba(231, 76, 60, 0.9);  /* 디럭스룸 색상 */
-			}
-
-			.room-card:hover .room-header.standard {
-				background-color: rgba(245, 166, 35, 0.9);  /* 스탠다드룸 색상 */
-			}
-
-			/* 호버시 특징 목록 강조 */
-			.room-card:hover .feature-list li {
-				transform: translateX(5px);  /* 살짝 오른쪽으로 이동 */
-				color: var(--text-color);  /* 텍스트 색상 강화 */
-			}
-
-			/* 특징 목록 아이템 전환 효과 */
-			.feature-list li {
-				transition: all 0.3s ease;
-			}
-
-			/* 추천 텍스트 강조 */
-			.room-card:hover .recommend-text {
-				font-weight: var(--font-bold);
-				color: var(--primary-color);
-			}
-
-			.room-header {
 				padding: 20px;
-				color: white;
-				text-align: center;
-			}
-
-			.room-header.family { background: var(--family-room-color); }
-			.room-header.premier { background: var(--premier-room-color); }
-			.room-header.deluxe { background: var(--deluxe-room-color); }
-			.room-header.standard { background: var(--standard-room-color); }
-
-			.room-price {
-				font-size: var(--font-size-2xl);
-				font-weight: var(--font-bold);
-				margin: 10px 0;
-			}
-
-			.room-base {
-				font-size: var(--font-size-sm);
-				opacity: 0.9;
-			}
-
-			.room-features {
-				padding: 15px;
-				background: white;
-			}
-
-			.feature-list {
-				list-style: none;
-				padding: 0;
-				margin: 0;
-				font-size: var(--font-size-sm);
-			}
-
-			.feature-list li {
-				margin: 8px 0;
-				display: flex;
-				align-items: center;
-				gap: 8px;
-				color: var(--text-color);
-				line-height: 1.5;
-			}
-
-			.feature-list li::before {
-				content: '•';
-				color: var(--text-color);
-				opacity: 0.5;
-			}
-
-			.price-notice {
-				grid-column: 1 / -1;
-				text-align: right;
-				font-size: var(--font-size-sm);
-				color: var(--text-color);
-				opacity: 0.8;
-				padding: 8px;
-			}
-
-			@media screen and (max-width: 768px) {
-				.price-section {
-					grid-template-columns: 1fr;
-					gap: 15px;
-				}
-
-				.room-header {
-					padding: 15px;
-				}
-
-				.room-price {
-					font-size: var(--font-size-xl);
-				}
-			}
-
-			/* 날짜 선택 컨테이너 스타일 */
-			.date-container {
-				display: flex;
-				gap: 8px;
-				width: 100%;
-			}
-
-			.date-inputs {
-				display: flex;
-				gap: 8px;
-				flex: 3;
-			}
-
-			.date-inputs select {
-				flex: 1;
-			}
-
-			.time-select {
-				flex: 1;
-				min-width: 120px;
-			}
-
-			/* 가격 표시 스타일 수정 */
-			.price-display {
-				display: inline-block;
-				width: 100%;
-				padding: 14px 20px;
-				border-radius: 10px;
-				text-align: right;
-				box-sizing: border-box;
-				margin: 0;
-			}
-
-			.price-display .main-price {
-				display: inline-block;
-				font-weight: var(--font-bold);
-				font-size: var(--font-size-xl);
-			}
-
-			.price-display .price-notice {
-				display: block;  /* inline-block에서 block으로 변경 */
-				font-size: var(--font-size-sm);
-				color: var(--danger-color);
-				background-color: rgba(255, 90, 95, 0.1);
-				padding: 4px 12px;
-				border-radius: 6px;
-				margin-top: 8px;
-				white-space: normal;
-				word-break: keep-all;
-				word-wrap: break-word;  /* 추가 */
-				width: fit-content;  /* 추가 */
-				margin-left: auto;  /* 추가 */
-				line-height: 1.4;  /* 추가 */
-			}
-
-			.days-row .price-display {
-				background-color: rgba(52, 152, 219, 0.15);
-				border: 1px solid rgba(52, 152, 219, 0.2);
-			}
-
-			.days-row .price-display .price-notice {
-				white-space: normal;
-				word-break: keep-all;
-				word-wrap: break-word;  /* 추가 */
-			}
-
-			@media screen and (max-width: 768px) {
-				.price-display {
-					padding: 12px 16px;
-				}
-
-				.price-display .main-price {
-					font-size: var(--font-size-lg);
-				}
-
-				.price-display .price-notice {
-					font-size: var(--font-size-xs);
-					padding: 3px 8px;
-					margin-top: 6px;
-				}
-			}
-
-			.days-row .price-display::before {
-				content: '×';
-				display: inline-block;
-				margin-right: 12px;
-				font-weight: var(--font-bold);
-				color: white;
-				font-size: var(--font-size-lg);
-				background-color: var(--premier-room-color);
-				width: 24px;
-				height: 24px;
-				border-radius: 50%;
-				text-align: center;
-				line-height: 24px;
-				vertical-align: middle;
-			}
-
-			@media screen and (max-width: 768px) {
-				.price-display {
-					padding: 12px 16px;
-				}
-
-				.price-display .main-price {
-					font-size: var(--font-size-lg);
-				}
-
-				.price-display .price-notice {
-					font-size: var(--font-size-xs);
-					padding: 3px 8px;
-				}
-
-				.days-row .price-display::before {
-					width: 20px;
-					height: 20px;
-					line-height: 20px;
-					font-size: var(--font-size-base);
-				}
-			}
-
-			/* 할인전 투숙비용 표시 스타일 */
-			.subtotal-row .price-display {
-				background-color: rgba(39, 174, 96, 0.15);
-				border: 1px solid rgba(39, 174, 96, 0.2);
-			}
-
-			/* 할인 정보 스타일 */
-			.discount-row th {
-				background-color: #FF7E00 !important;
-				color: white !important;
-				font-size: var(--font-size-xl);
-				font-weight: var(--font-bold);
-			}
-
-			.discount-rate::before,
-			.discount-amount::before {
-				content: '-';
-				margin-right: 8px;
-				font-weight: var(--font-bold);
-				color: white;
-				background-color: #FF7E00;
-				width: 24px;
-				height: 24px;
-				border-radius: 50%;
-				display: inline-flex;
-				align-items: center;
-				justify-content: center;
-				vertical-align: middle;
-			}
-
-			.discount-rate,
-			.discount-amount {
-				display: inline-block;
-				padding: 14px 20px;
-				border-radius: 10px;
-				font-weight: var(--font-bold);
-				text-align: right;
-				min-width: 110px;
-				font-size: var(--font-size-xl);
-				background-color: rgba(255, 126, 0, 0.15);
-				color: #FF7E00;
-				border: 1px solid rgba(255, 126, 0, 0.2);
-				box-shadow: 0 4px 8px rgba(255, 126, 0, 0.1);
-			}
-
-			/* 최종 투숙비용 표시 스타일 */
-			.final-cost-row .price-display {
-				background-color: rgba(255, 90, 95, 0.15);
-				border: 1px solid rgba(255, 90, 95, 0.2);
-			}
-
-			/* 모바일 대응 */
-			@media screen and (max-width: 768px) {
-				.price-display {
-					padding: 12px 16px;
-					gap: 6px;
-				}
-
-				.main-price {
-					font-size: var(--font-size-lg);
-				}
-
-				.price-notice {
-					font-size: var(--font-size-xs);
-					padding-top: 6px;
-					margin-top: 2px;
-				}
-
-				.days-row .price-display::before,
-				.discount-rate::before,
-				.discount-amount::before {
-					width: 20px;
-					height: 20px;
-					font-size: var(--font-size-base);
-					margin-right: 6px;
-				}
-			}
-
-			/* 객실 단가 참고사항 스타일 */
-			.price-notice {
-				font-size: var(--font-size-sm);
-				opacity: 0.7;
-				font-weight: var(--font-regular);
-				color: var(--text-color);
-				margin-left: 0;
-				padding: 4px 8px;
-				display: inline-block;
-				background-color: rgba(0, 0, 0, 0.02);
-				border-radius: 6px;
-				vertical-align: middle;
-			}
-
-			.room-info .price-notice {
-				background-color: rgba(52, 152, 219, 0.03);
-				border: 1px solid rgba(52, 152, 219, 0.06);
-			}
-
-			.room-family .price-notice {
-				background-color: rgba(39, 174, 96, 0.03);
-				border: 1px solid rgba(39, 174, 96, 0.06);
-			}
-
-			.room-premier .price-notice {
-				background-color: rgba(52, 152, 219, 0.03);
-				border: 1px solid rgba(52, 152, 219, 0.06);
-			}
-
-			.room-deluxe .price-notice {
-				background-color: rgba(231, 76, 60, 0.03);
-				border: 1px solid rgba(231, 76, 60, 0.06);
-			}
-
-			.room-standard .price-notice {
-				background-color: rgba(245, 166, 35, 0.05);
-				border: 1px solid rgba(245, 166, 35, 0.1);
-			}
-
-			/* 모바일 대응 */
-			@media screen and (max-width: 768px) {
-				.price-notice {
-					font-size: var(--font-size-xs);
-					padding: 3px 6px;
-				}
-			}
-
-			.room-type-text {
-				display: inline-block;
-				padding: 4px 12px;
-				border-radius: 20px;
-				font-weight: var(--font-semibold);
-				color: white;
-				font-size: var(--font-size-base);
-			}
-
-			.room-type-text.family {
-				background-color: var(--family-room-color);
-			}
-
-			.room-type-text.premier {
-				background-color: var(--premier-room-color);
-			}
-
-			.room-type-text.deluxe {
-				background-color: var(--deluxe-room-color);
-			}
-
-			.room-type-text.standard {
-				background-color: var(--standard-room-color);
-			}
-
-			/* 모바일 대응 */
-			@media screen and (max-width: 768px) {
-				.room-type-text {
-					padding: 3px 10px;
-					font-size: var(--font-size-sm);
-				}
-			}
-
-			/* 공통 참고사항 스타일 */
-			.price-notice {
-				display: block;
-				font-size: var(--font-size-sm);
-				opacity: 0.8;
-				font-weight: var(--font-regular);
-				color: var(--danger-color);
-				background-color: rgba(255, 90, 95, 0.1);
-				padding: 4px 8px;
-				border-radius: 6px;
-				margin-top: 4px;
-				text-align: right;
-			}
-
-			/* 객실 단가 스타일 */
-			.room-info .price-display {
-				display: block;
-				width: 100%;
-				text-align: right;
-			}
-
-			.room-info .price-display .main-price {
-				display: block;
-				font-weight: var(--font-bold);
-				font-size: var(--font-size-xl);
-			}
-
-			/* 이용일수 표시 스타일 */
-			.days-row .price-display {
-				display: block;
-				width: 100%;
-				text-align: right;
-				background-color: rgba(52, 152, 219, 0.15);
-				color: var(--premier-room-color);
-				border: 1px solid rgba(52, 152, 219, 0.2);
-				padding: 14px 20px;
-				border-radius: 10px;
-			}
-
-			.days-row .price-display::before {
-				content: '×';
-				display: inline-block;
-				margin-right: 12px;
-				font-weight: var(--font-bold);
-				color: white;
-				font-size: var(--font-size-lg);
-				background-color: var(--premier-room-color);
-				width: 24px;
-				height: 24px;
-				border-radius: 50%;
-				text-align: center;
-				line-height: 24px;
-				vertical-align: middle;
-			}
-
-			.days-row .price-display .main-price {
-				display: inline-block;
-				font-weight: var(--font-bold);
-				font-size: var(--font-size-xl);
-				vertical-align: middle;
-			}
-
-			/* 모바일 대응 */
-			@media screen and (max-width: 768px) {
-				.price-notice {
-					font-size: var(--font-size-xs);
-					padding: 3px 6px;
-				}
-
-				.days-row .price-display {
-					padding: 12px 16px;
-				}
-				
-				.days-row .price-display::before {
-					width: 20px;
-					height: 20px;
-					line-height: 20px;
-					font-size: var(--font-size-base);
-				}
-				
-				.days-row .price-display .main-price {
-					font-size: var(--font-size-lg);
-				}
-			}
-
-			/* 최종 투숙비용 행 스타일 */
-			.final-cost-row {
-				border: none; /* 테이블 전체 테두리가 있으므로 행 테두리 제거 */
-				background-color: rgba(255, 90, 95, 0.02);  /* 원래 배경색 유지 또는 테이블 배경과 통일 */
-			}
-
-			.final-cost-row th,
-			.final-cost-row td {
-				padding: 16px !important;
-			}
-
-			.final-cost-row .price-display {
-				background-color: rgba(255, 90, 95, 0.15); /* 원래 배경색 */
-				/* border: 2px solid rgba(255, 90, 95, 0.3); */ /* 내부 display 테두리도 제거 또는 약화 */
-				border: 1px solid rgba(255, 90, 95, 0.25); /* 매우 연한 테두리로 변경 또는 제거 */
-				box-shadow: 0 1px 4px rgba(255, 90, 95, 0.08);  /* 원래 그림자보다 약하게 */
-				padding: 16px 24px;
-				color: var(--danger-color); /* 원래 글자색 (명시적으로 지정) */
-			}
-
-			.final-cost-row .main-price {
-				font-size: calc(var(--font-size-xl) * 1.1);  /* 글자 크기 약간 증가 */
-				font-weight: var(--font-bold);
-			}
-
-			/* 모바일 대응 */
-			@media screen and (max-width: 768px) {
-				.final-cost-row th,
-				.final-cost-row td {
-					padding: 12px !important;
-				}
-
-				.final-cost-row .price-display {
-					padding: 12px 16px;
-				}
-
-				.final-cost-row .main-price {
-					font-size: var(--font-size-xl);
-				}
-			}
-
-			/* 구분선 스타일 */
-			.section-divider {
-				width: 100%;
-				height: 1px;
-				background: linear-gradient(to right, transparent, var(--border-color), transparent);
-				margin: 32px 0;
-			}
-
-			/* 모바일 대응 */
-			@media screen and (max-width: 768px) {
-				.section-divider {
-					margin: 24px 0;
-				}
-			}
-
-			/* 모바일 환경에서의 테이블 입력 영역 수정 */
-			@media screen and (max-width: 768px) {
-				.tblPriceInput td {
-					padding: 12px 8px !important;  /* 패딩 축소 - 이 규칙이 td 패딩을 최종 결정 */
-				}
-
-				/* 입력 요소 컨테이너 */
-				.date-container {
-					width: 100%;
-				}
-
-				/* 날짜 입력 그룹 */
-				.date-inputs {
-					width: 100%;
-					gap: 4px;  /* 간격 축소 */
-				}
-
-				/* 셀렉트 박스 */
-				select {
-					padding: 8px;
-					font-size: var(--font-size-sm);
-					width: 100%;
-					min-width: 0;  /* 최소 너비 제거 */
-				}
-
-				/* 시간 선택 */
-				.time-select {
-					width: 100%;
-				}
-			}
-
-			/* 상단 정보 버튼 기본 스타일 (PC) */
-			.info-buttons {
-				display: flex; /* 버튼들을 가로로 배치 */
-				flex-wrap: nowrap; /* 버튼들을 한 줄에 강제 배치 */
-				gap: 10px; /* 버튼 사이 간격 약간 줄임 */
-				padding: 16px;
-				background-color: var(--background-light);
 				border-radius: 12px;
-				border: 1px solid var(--border-color);
-				justify-content: center; /* 버튼들을 중앙 정렬 */
-				margin-bottom: 20px; /* 다른 섹션과의 간격 */
-				overflow-x: auto; /* 내용이 넘칠 경우 가로 스크롤 (만약을 위해) */
+			}
+			.image-capture-price-output {
+				margin-bottom: 20px;
 			}
 
-			.info-button {
-				display: inline-flex; 
-				align-items: center; 
-				justify-content: center; 
-				gap: 8px; 
-				padding: 10px 15px; /* 패딩 약간 줄임 */
-				font-size: var(--font-size-sm); /* 폰트 크기 약간 줄임 */
-				font-weight: var(--font-medium);
+			/* 이미지 저장 완료 피드백 (copy-feedback과 유사) */
+			.save-image-feedback {
+				position: fixed;
+				bottom: 20px;
+				left: 50%;
+				transform: translateX(-50%);
+				background-color: var(--text-color); /* 성공 시 배경색 */
+				color: white;
+				padding: 12px 24px;
 				border-radius: 8px;
-				transition: all 0.2s ease;
-				background-color: white;
-				border: 1px solid var(--border-color);
-				color: var(--primary-color);
-				text-decoration: none; 
-				cursor: pointer;
-				flex-grow: 1; /* 공간을 균등하게 나눠 가짐 */
-				flex-basis: 0; /* flex-grow와 함께 사용 */
-				min-width: auto; /* 최소 너비 제한 해제 또는 줄임 */
-				text-align: center;
-				white-space: nowrap; /* 버튼 내 텍스트 줄바꿈 방지 */
+				box-shadow: 0 4px 15px rgba(0,0,0,0.25);
+				z-index: 2000;
+				opacity: 0;
+				visibility: hidden;
+				font-size: var(--font-size-base);
+				transition: opacity 0.3s ease, visibility 0.3s ease, bottom 0.3s ease, background-color 0.3s ease;
+			}
+			.save-image-feedback.show {
+				opacity: 1;
+				visibility: visible;
+				bottom: 40px;
+			}
+			/* 피드백 에러 상태 스타일 */
+			.copy-feedback.error,
+			.save-image-feedback.error {
+				background-color: var(--danger-color); /* 에러 시 배경색 */
 			}
 
-			.info-button i {
-				font-size: 1.1em; /* 아이콘 크기 */
+			/* 메인 타이틀 바로 다음 구분선 여백 조정 */
+			.main-title + .section-divider {
+				margin-top: var(--section-gap);
+				margin-bottom: var(--section-gap);
+			}
+
+			/* 현재 날짜 표시 스타일 */
+			.current-date-display {
+				text-align: center; /* 내부 span을 중앙 정렬하기 위해 유지 */
+				margin-top: -5px; /* h1과의 간격 약간 더 조정 */
+				margin-bottom: calc(var(--section-gap) + 5px); /* 하단 여백 보정 */
+				line-height: 1; /* span의 padding 때문에 추가될 수 있는 불필요한 line-height 제거 */
+			}
+			.current-date-display > span {
+				display: inline-block; /* 배경과 padding 적용을 위해 */
+				padding: 8px 15px;
+				background-color: var(--background-light); /* 밝은 배경색 */
+				border: 1px solid var(--border-color);
+				border-radius: 20px; /* 동그란 모서리 */
+				font-size: var(--font-size-sm);
+				color: var(--text-color);
+				box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+			}
+			.current-date-display .fas {
+				margin-right: 7px; /* 아이콘과 텍스트 사이 간격 */
 				color: var(--primary-color); /* 아이콘 색상 */
 			}
 
-			.info-button:hover {
-				background-color: var(--primary-color);
-				color: white;
-				border-color: var(--primary-color);
-				transform: translateY(-2px); /* 살짝 떠오르는 효과 */
-				box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-			}
-
-			.info-button:hover i {
-				color: white;
-			}
-
-			/* 예약 버튼 강조 (PC) */
-			.info-button.reservation {
-				background-color: var(--primary-color);
-				color: white;
-				border-color: var(--primary-color);
-				font-weight: var(--font-semibold); /* 약간 더 강조 */
-				/* PC에서는 예약 버튼이 특별히 길 필요는 없으므로, 다른 버튼과 동일한 너비 가짐 */
-			}
-
-			.info-button.reservation i {
-				color: white;
-			}
-
-			.info-button.reservation:hover {
-				background-color: #3a7bc8; /* primary-color보다 약간 어둡게 */
-				border-color: #3a7bc8;
-			}
-
-			/* 상단 정보 버튼 모바일 스타일 개선 */
-			@media screen and (max-width: 768px) {
-				.info-buttons {
-					display: grid;
-					grid-template-columns: 1fr;  /* 1열로 변경 */
-				}
-
-				.info-button {
-					flex-direction: row;  /* 다시 가로 배치로 */
-					min-height: 44px;
-					justify-content: flex-start;
-					padding: 8px 12px;
-				}
-
-				.info-button i {
-					margin-bottom: 0;
-					margin-right: 8px;
-				}
-			}
-
-			/* 입력 테이블 전체 스타일 */
-			.tblPriceInput {
-				border: 1px solid var(--border-color); /* 테이블 전체 외곽선 */
-				border-radius: 12px; /* 테이블 전체 둥근 모서리 */
-				box-shadow: 0 2px 8px var(--shadow-color); /* 테이블 전체 그림자 */
-				overflow: hidden; /* 내부 요소가 둥근 모서리를 넘지 않도록 */
-				background-color: white; /* 테이블 배경 흰색 */
-				/* border-collapse: separate; 와 border-spacing: 0; 는 PC 스타일에서 이미 적용됨 */
-				margin: 20px 0; /* PC 스타일의 margin 유지 */
-				width: 100%;    /* PC 스타일의 width 유지 */
-			}
-
-			.tblPriceInput tr {
-				margin-bottom: 0; /* 각 행의 카드 스타일 제거 */
-				border-radius: 0;
-				box-shadow: none;
-				background-color: transparent; /* 테이블 배경색을 사용하도록 */
-			}
-
-			.tblPriceInput th {
-				padding: 14px; /* 기존 패딩 유지 */
-				background-color: var(--background-light); /* 기존 배경색 유지 */
-				border-radius: 0; /* 개별 둥근 모서리 제거 */
-				font-weight: 600;
-				width: 75px; /* 고정 너비 */
-				border: none; /* 모든 테두리 초기화 */
-				border-right: 1px solid var(--border-color); /* 오른쪽 구분선 */
-				border-bottom: 1px solid var(--border-color); /* 아래쪽 구분선 */
-				text-align: center;
-				vertical-align: middle;
-			}
-
-			.tblPriceInput td {
-				/* padding: 16px !important; 이 규칙은 아래 더 구체적인 규칙으로 대체됨 */
-				background-color: white; /* td 배경색 */
-				border: none; /* 모든 테두리 초기화 */
-				border-bottom: 1px solid var(--border-color); /* 아래쪽 구분선 */
-				vertical-align: middle;
-			}
-
-			/* 마지막 행의 th와 td의 아래쪽 테두리 제거 */
-			.tblPriceInput tr:last-child > th,
-			.tblPriceInput tr:last-child > td {
-				border-bottom: none;
-			}
-
-			/* 할인 정보 모바일 스타일 수정 */
-			.discount-row .discount-info {
-				display: flex;
-				width: 100%;
-				background-color: rgba(255, 126, 0, 0.10); /* 기존 개별 박스 배경보다 약간 연하게 */
-				border: 1px solid rgba(255, 126, 0, 0.15);
-				border-radius: 8px; /* 다른 UI 요소들과 일관성 있는 radius */
-				box-shadow: 0 2px 4px rgba(255, 126, 0, 0.08);
-				overflow: hidden;
-				align-items: stretch; /* 내부 요소들이 세로로 꽉 차도록 */
-				margin-top: 8px; /* 위 요소와의 간격 */
-			}
-
-			.discount-row .discount-rate,
-			.discount-row .discount-amount {
-				/* .price-display 또는 자체 스타일에서 오는 불필요한 부분 초기화 */
-				background: none !important;
-				border: none !important;
-				box-shadow: none !important;
-				min-width: unset !important;
-				border-radius: 0 !important; /* 내부 요소의 radius 제거 */
-				
-				flex: 1; /* 공간을 균등하게 차지 */
-				text-align: center;
-				font-size: var(--font-size-sm); /* 이미 적용되어 있을 수 있음 */
-				color: #FF7E00; /* 기존 텍스트 색상 */
-				padding: 10px 5px !important; /* 상하 패딩은 유지, 좌우 패딩은 최소화 */
-				display: flex; /* 내부 텍스트 중앙 정렬을 위해 */
-				align-items: center;
-				justify-content: center;
-				line-height: 1.3; /* 줄간격 조정 */
-			}
-
-			.discount-row .discount-rate {
-				border-right: 1px solid rgba(255, 126, 0, 0.25) !important; /* 구분선 */
-				font-weight: var(--font-medium); /* 할인율 폰트 두께 */
-			}
-
-			.discount-row .discount-amount {
-				font-weight: var(--font-bold); /* 할인금액 강조 */
-			}
-
-			/* 기존 .discount-rate, .discount-amount 에 적용된 ::before 가상 요소 숨기기 (모바일) */
-			.discount-rate::before,
-			.discount-amount::before {
-				display: none !important; 
-			}
-
-			/* 고양이 백과사전 섹션 스타일 */
-			.cat-encyclopedia-section {
-				margin-top: 20px;
-				margin-bottom: 20px;
-				padding: 10px; /* 패딩 수정 */
-				background-color: #f9f9f9;
-				border-radius: 8px;
-				border: 1px solid var(--border-color);
-			}
-
-			/* 제목 토글 영역 스타일 수정 */
-			.encyclopedia-toggle {
-				position: relative; /* 화살표의 absolute 기준점 */
-				padding: 8px 35px 8px 10px; /* 상하 패딩 수정, 오른쪽 패딩은 화살표 공간 확보 */
-				cursor: pointer;
-				user-select: none;
-				text-align: center; /* 내부 아이콘+텍스트 중앙 정렬 */
-			}
-
-			.encyclopedia-toggle .fas.fa-book { /* 책 아이콘 */
-				margin-right: 8px; /* 텍스트와의 간격 */
-				font-size: 0.85em; /* 아이콘 크기 약간 축소 */
-				opacity: 0.7;
-				color: var(--text-color);
-				vertical-align: middle;
-			}
-
-			.encyclopedia-toggle .actual-title-text { /* 실제 제목 텍스트 */
-				font-size: var(--font-size-sm); /* 글자 크기 var(--font-size-sm)으로 수정 */
-				font-weight: var(--font-semibold);
-				color: var(--text-color);
-				vertical-align: middle;
-			}
-
-			.encyclopedia-toggle .toggle-arrow { /* 화살표 아이콘 */
-				position: absolute;
-				right: 10px;
-				top: 50%;
-				transform: translateY(-50%);
-				font-size: 0.8em;
-				transition: transform 0.3s ease;
-			}
-
-			.encyclopedia-toggle .toggle-arrow.open {
-				transform: translateY(-50%) rotate(180deg);
-			}
-
-			/* 링크 버튼 그룹 스타일 수정 */
-			.encyclopedia-links {
-				display: none; /* 기본 숨김 */
-				padding-top: 10px; /* 패딩 수정 */
-				margin-top: 8px;  /* 마진 수정 */
-				border-top: 1px solid var(--border-color);
-			}
-
-			.encyclopedia-links.show {
-				display: flex; /* 보이게 될 때 flex로 변경 */
-				justify-content: center; /* 버튼들을 중앙 정렬 */
-				align-items: center; /* 수직 중앙 정렬 (버튼 높이 다를 경우) */
-				flex-wrap: wrap; /* 화면 작으면 줄바꿈 (필요시) */
-				gap: 10px; /* 버튼 사이 간격 */
-			}
-
-			/* 개별 링크 버튼 스타일 수정 */
-			.encyclopedia-link-button {
-				flex-grow: 1; /* 가능한 공간을 균등하게 차지 */
-				flex-basis: 0; /* flex-grow와 함께 사용하여 너비 유연하게 */
-				min-width: 120px; /* 버튼이 너무 작아지는 것 방지 */
-				padding: 8px 15px; /* 상하8, 좌우15 (중앙 정렬이므로 좌우 동일) */
-				margin-bottom: 8px; /* flex-wrap으로 줄바꿈 시 하단 간격 */
-				border-radius: 8px;
-				background-color: white;
-				border: 1px solid var(--primary-color);
-				color: var(--primary-color);
-				text-decoration: none;
-				font-size: var(--font-size-sm);
-				font-weight: var(--font-medium);
-				transition: background-color 0.2s ease, color 0.2s ease;
-				text-align: center; /* 텍스트 중앙 정렬 */
-			}
-
-			.encyclopedia-link-button:last-child {
-				/* margin-bottom: 0; -> gap 사용시 불필요 할 수 있음, 확인 후 조정 */
-			}
-
-			.encyclopedia-link-button:hover {
-				background-color: var(--primary-color);
-				color: white;
-			}
-
-			/* 모바일 대응 스타일 수정 */
-			@media screen and (max-width: 768px) {
-				.encyclopedia-toggle {
-					font-size: 1rem;
-					padding-right: 30px; /* 화살표 공간 유지 */
-				}
-				.encyclopedia-links.show {
-					flex-direction: column; /* 모바일에선 버튼 세로로 쌓기 */
-					align-items: stretch; /* 버튼들 가로로 꽉 차게 */
-				}
-				.encyclopedia-link-button {
-					font-size: var(--font-size-xs);
-					padding: 10px 15px; /* 모바일 버튼 패딩 조정 */
-					flex-grow: 0; /* 세로 쌓기이므로 grow 불필요 */
-					min-width: unset; /* 세로 쌓기이므로 min-width 불필요 */
-					/* margin-bottom은 gap으로 인해 자동으로 적용되거나, 필요시 여기서 개별적으로도 마지막 요소 제외하고 줄 수 있음. */
-				}
-				.encyclopedia-link-button:not(:last-child) {
-    				margin-bottom: 8px; /* 모바일 세로 정렬 시 버튼 간 간격 */
-				}
-				.encyclopedia-link-button:last-child {
-    				margin-bottom: 0;
-				}
-			}
 		</style>
-		<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-		<script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
-		<script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/js/all.min.js"></script>
-		<script>
-			// 설정 객체
-			const CONFIG = {
-				TIME: {
-					CHECK_IN: {
-						LATE_CHECK_IN_HOUR: 18,
-						DEFAULT_HOUR: 10
-					},
-					CHECK_OUT: {
-						EARLY_CHECK_OUT_HOUR: 12,
-						DEFAULT_HOUR: 20
-					}
-				}
-			};
-
-			// DOM 요소 참조를 전역으로 이동
-			window.DOM = {
-				dateInputs: {
-					checkIn: {
-						year: null,
-						month: null,
-						day: null,
-						hour: null
-					},
-					checkOut: {
-						year: null,
-						month: null,
-						day: null,
-						hour: null
-					}
-				},
-				room: {
-					type: null,
-					catCount: null
-				},
-				price: {
-					room: null,
-					subtotal: null,
-					discount: {
-						rate: null,
-						amount: null
-					},
-					final: null
-				},
-				stay: {
-					duration: null
-				}
-			};
-
-			// 초기화 및 이벤트 설정
-			$(document).ready(function() {
-				// DOM 요소 초기화
-				DOM.dateInputs.checkIn.year = $("#checkInYear");
-				DOM.dateInputs.checkIn.month = $("#checkInMonth");
-				DOM.dateInputs.checkIn.day = $("#checkInDay");
-				DOM.dateInputs.checkIn.hour = $("#checkInHour");
-				
-				DOM.dateInputs.checkOut.year = $("#checkOutYear");
-				DOM.dateInputs.checkOut.month = $("#checkOutMonth");
-				DOM.dateInputs.checkOut.day = $("#checkOutDay");
-				DOM.dateInputs.checkOut.hour = $("#checkOutHour");
-				
-				DOM.room.type = $("#roomType");
-				DOM.room.catCount = $("#catCount");
-				
-				DOM.price.room = $("#roomPrice");
-				DOM.price.subtotal = $("#subtotalPrice");
-				DOM.price.discount.rate = $("#discountRate");
-				DOM.price.discount.amount = $("#discountAmount");
-				DOM.price.final = $("#finalPrice");
-				
-				DOM.stay.duration = $("#stayDuration");
-
-				// 초기화 실행
-				initializeCalculator();
-				
-				// 초기 계산 실행
-				calculateAndUpdatePrice();
-			});
-
-			function setupEventListeners() {
-				// 객실 타입 변경
-				DOM.room.type.off("change").on("change", function() {
-					const selectedRoom = $(this).val();
-					
-					// 이전 클래스 제거
-					$(this).removeClass("family premier deluxe standard");
-					DOM.room.catCount.removeClass("family premier deluxe standard");
-					DOM.price.room.removeClass("family premier deluxe standard");
-					
-					// 새 클래스 추가
-					let roomClass;
-					switch(selectedRoom) {
-						case 'f': roomClass = 'family'; break;
-						case 'p': roomClass = 'premier'; break;
-						case 'd': roomClass = 'deluxe'; break;
-						case 's': roomClass = 'standard'; break;
-					}
-					
-					$(this).addClass(roomClass);
-					DOM.room.catCount.addClass(roomClass);
-					DOM.price.room.addClass(roomClass);
-					
-					// 객실 이름 업데이트
-					const roomName = $(this).find("option:selected").text();
-					$(".room-type-text").text(roomName).removeClass("family premier deluxe standard").addClass(roomClass);
-					
-					// 가격 재계산
-					calculateAndUpdatePrice();
-					
-					// UI 업데이트 효과
-					DOM.price.room.addClass("highlight-change");
-					setTimeout(() => DOM.price.room.removeClass("highlight-change"), 600);
-				});
-
-				// 묘 수 변경
-				DOM.room.catCount.off("change").on("change", function() {
-					calculateAndUpdatePrice();
-				});
-
-				// 입실 날짜 변경 이벤트
-				DOM.dateInputs.checkIn.month.off("change").on("change", function() {
-					const selectedMonth = parseInt($(this).val());
-					const selectedYear = parseInt(DOM.dateInputs.checkIn.year.val());
-					
-					// 입실일 업데이트
-					updateDayOptions(DOM.dateInputs.checkIn, 1);
-					
-					// 퇴실일도 같은 월로 업데이트
-					DOM.dateInputs.checkOut.month.val(selectedMonth);
-					DOM.dateInputs.checkOut.year.val(selectedYear);
-					updateDayOptions(DOM.dateInputs.checkOut, parseInt(DOM.dateInputs.checkIn.day.val()) + 1);
-					
-					calculateAndUpdatePrice();
-				});
-
-				// 퇴실 날짜 변경 이벤트
-				DOM.dateInputs.checkOut.month.off("change").on("change", function() {
-					const selectedMonth = parseInt($(this).val());
-					const selectedYear = parseInt(DOM.dateInputs.checkOut.year.val());
-					const checkInMonth = parseInt(DOM.dateInputs.checkIn.month.val());
-					const checkInYear = parseInt(DOM.dateInputs.checkIn.year.val());
-					const checkInDay = parseInt(DOM.dateInputs.checkIn.day.val());
-					
-					// 시작일이 1일이거나, 체크인 날짜와 같은 달인 경우 체크인 날짜 다음날부터 선택 가능
-					let startDay = 1;
-					if (selectedMonth === checkInMonth && selectedYear === checkInYear) {
-						startDay = checkInDay + 1;
-					}
-					
-					updateDayOptions(DOM.dateInputs.checkOut, startDay);
-					calculateAndUpdatePrice();
-				});
-
-				// 입실 연도 변경 이벤트
-				DOM.dateInputs.checkIn.year.off("change").on("change", function() {
-					const selectedYear = parseInt($(this).val());
-					const checkInMonth = parseInt(DOM.dateInputs.checkIn.month.val());
-					
-					updateMonthOptions(DOM.dateInputs.checkIn, selectedYear, true); // 입실 연도 변경 시 월 옵션 업데이트
-					updateDayOptions(DOM.dateInputs.checkIn, DOM.dateInputs.checkIn.day.val()); // 일 옵션도 업데이트
-
-					validateAndAdjustCheckoutDate();
-					calculateAndUpdatePrice();
-				});
-
-				// 입실 월 변경 이벤트
-				DOM.dateInputs.checkIn.month.off("change").on("change", function() {
-					updateDayOptions(DOM.dateInputs.checkIn, DOM.dateInputs.checkIn.day.val()); // 현재 월 기준으로 일 옵션 업데이트
-
-					validateAndAdjustCheckoutDate();
-					calculateAndUpdatePrice();
-				});
-
-				// 입실 일 변경 이벤트
-				DOM.dateInputs.checkIn.day.off("change").on("change", function() {
-					validateAndAdjustCheckoutDate();
-					calculateAndUpdatePrice();
-				});
-
-				// 퇴실 연도 변경 이벤트
-				DOM.dateInputs.checkOut.year.off("change").on("change", function() {
-					const selectedYear = parseInt($(this).val());
-					updateMonthOptions(DOM.dateInputs.checkOut, selectedYear, false);
-					updateDayOptions(DOM.dateInputs.checkOut, DOM.dateInputs.checkOut.day.val());
-
-					// 퇴실일이 입실일보다 앞서지 않도록 유효성 검사 (필요시 추가)
-					// 현재는 validateAndAdjustCheckoutDate()가 입실일 변경 시 주로 처리
-					calculateAndUpdatePrice();
-				});
-				
-				// 퇴실 월 변경 이벤트
-				DOM.dateInputs.checkOut.month.off("change").on("change", function() {
-					updateDayOptions(DOM.dateInputs.checkOut, DOM.dateInputs.checkOut.day.val());
-					// 퇴실일이 입실일보다 앞서지 않도록 유효성 검사 (필요시 추가)
-					calculateAndUpdatePrice();
-				});
-
-				// 퇴실 일 및 시간, 입실 시간 변경 이벤트
-				const otherInputs = [
-					DOM.dateInputs.checkIn.hour,
-					DOM.dateInputs.checkOut.day,
-					DOM.dateInputs.checkOut.hour
-				];
-
-				otherInputs.forEach(input => {
-					input.off("change").on("change", function() {
-						if (this.id.includes("Hour")) {
-							// UIManager.updateTimeStyle();
-						}
-						// 퇴실일 변경 시에도 유효성 검사 (예: 입실일보다 뒤인지)
-						// calculateAndUpdatePrice 이전에 validateAndAdjustCheckoutDate() 호출도 고려
-						calculateAndUpdatePrice();
-					});
-				});
-			}
-
-			// 퇴실 날짜 유효성 검사 및 조정 함수
-			function validateAndAdjustCheckoutDate() {
-				const checkInYear = parseInt(DOM.dateInputs.checkIn.year.val());
-				const checkInMonth = parseInt(DOM.dateInputs.checkIn.month.val());
-				const checkInDay = parseInt(DOM.dateInputs.checkIn.day.val());
-				const checkInDate = new Date(checkInYear, checkInMonth - 1, checkInDay);
-
-				let checkOutYear = parseInt(DOM.dateInputs.checkOut.year.val());
-				let checkOutMonth = parseInt(DOM.dateInputs.checkOut.month.val());
-				let checkOutDay = parseInt(DOM.dateInputs.checkOut.day.val());
-				
-				// checkOutDay가 현재 월에 유효하지 않을 수 있으므로, new Date 전에 보정
-				const daysInCheckoutMonth = new Date(checkOutYear, checkOutMonth, 0).getDate();
-				if (checkOutDay > daysInCheckoutMonth) {
-					checkOutDay = daysInCheckoutMonth;
-				}
-				let checkOutDate = new Date(checkOutYear, checkOutMonth - 1, checkOutDay);
-
-				const minCheckoutDate = new Date(checkInDate); // 최소 퇴실일을 입실일 당일로 설정
-
-				if (checkOutDate < minCheckoutDate) {
-					DOM.dateInputs.checkOut.year.val(minCheckoutDate.getFullYear());
-					updateMonthOptions(DOM.dateInputs.checkOut, minCheckoutDate.getFullYear(), false);
-					DOM.dateInputs.checkOut.month.val(minCheckoutDate.getMonth() + 1);
-					updateDayOptions(DOM.dateInputs.checkOut, minCheckoutDate.getDate());
-				} else {
-					// 퇴실일이 유효하더라도, 월/일 select의 옵션은 현재 값 기준으로 갱신되어야 함
-					updateMonthOptions(DOM.dateInputs.checkOut, checkOutYear, false);
-					updateDayOptions(DOM.dateInputs.checkOut, checkOutDay); // 현재 checkOutDay로 옵션 갱신
-				}
-			}
-
-			function updateMonthOptions(dateInputs, selectedYear, isCheckIn) {
-				const currentVal = dateInputs.month.val() ? parseInt(dateInputs.month.val()) : null;
-				const monthSelect = dateInputs.month;
-				monthSelect.empty();
-				
-				const today = new Date();
-				let startMonth = 1;
-				
-				if (isCheckIn) { 
-					if (selectedYear === today.getFullYear()) {
-						startMonth = today.getMonth() + 1; 
-					}
-				} else { 
-					const checkInYear = parseInt(DOM.dateInputs.checkIn.year.val());
-					const checkInMonth = parseInt(DOM.dateInputs.checkIn.month.val());
-					if (selectedYear === checkInYear) {
-						startMonth = checkInMonth; 
-					}
-				}
-
-				for (let i = startMonth; i <= 12; i++) {
-					monthSelect.append($("<option>").val(i).text(`${i}월`));
-				}
-
-				if (currentVal && monthSelect.find('option[value="' + currentVal + '"]').length > 0) {
-					monthSelect.val(currentVal);
-				} else if (monthSelect.find("option").length > 0) {
-					monthSelect.val(monthSelect.find("option:first").val());
-				} else {
-				    // 선택 가능한 월 옵션이 없는 경우 (예: 입실일이 12월인데 퇴실 연도를 같은해로 한 경우)
-                    // 이 경우 상위 로직(validateAndAdjustCheckoutDate)에서 연도를 조정해야 할 수 있음.
-				}
-			}
-
-			function updateDayOptions(dateInputs, selectedDayToTry) {
-				const year = parseInt(dateInputs.year.val());
-				const month = parseInt(dateInputs.month.val());
-				const daySelect = dateInputs.day;
-				const currentVal = daySelect.val() ? parseInt(daySelect.val()) : null;
-				daySelect.empty();
-
-				const today = new Date();
-				let startDay = 1;
-				const isCheckInSelect = dateInputs.year.attr('id').includes('checkIn');
-
-				if (isCheckInSelect) {
-					if (year === today.getFullYear() && month === (today.getMonth() + 1)) {
-						startDay = today.getDate();
-					}
-				} else { // 퇴실 날짜의 일 옵션 설정
-					const checkInYear = parseInt(DOM.dateInputs.checkIn.year.val());
-					const checkInMonth = parseInt(DOM.dateInputs.checkIn.month.val());
-					const checkInDay = parseInt(DOM.dateInputs.checkIn.day.val());
-
-					if (year === checkInYear && month === checkInMonth) {
-						startDay = checkInDay; // 퇴실일은 입실일 당일부터 선택 가능
-					}
-				}
-
-				const daysInMonth = new Date(year, month, 0).getDate();
-				for (let i = startDay; i <= daysInMonth; i++) {
-						daySelect.append($("<option>").val(i).text(`${i}일`));
-				}
-				
-				let finalSelectedDay = selectedDayToTry !== null && selectedDayToTry !== undefined ? parseInt(selectedDayToTry) : currentVal;
-
-				if (daySelect.find('option[value="' + finalSelectedDay + '"]').length > 0) {
-    				daySelect.val(finalSelectedDay);
-				} else if (daySelect.find("option").length > 0) {
-					daySelect.val(daySelect.find("option:first").val());
-				} else {
-					// 날짜 옵션이 없는 경우의 처리: validateAndAdjustCheckoutDate에서 다음달로 넘기거나 해야함.
-					// 예를 들어 입실일이 2월 28일이고, 퇴실일 계산 시 startDay가 29일인데 2월이 28일까지인 경우.
-					// 이 경우 validateAndAdjustCheckoutDate 함수가 호출되어 minCheckoutDate로 설정되면서 월/일이 조정될 것임.
-				}
-			}
-
-			function initializeDateSelects() {
-				const today = new Date();
-				const currentYear = today.getFullYear();
-
-				[DOM.dateInputs.checkIn.year, DOM.dateInputs.checkOut.year].forEach(yearSelect => {
-					yearSelect.empty();
-					yearSelect.append($("<option>").val(currentYear).text(`${currentYear}년`));
-					yearSelect.append($("<option>").val(currentYear + 1).text(`${currentYear + 1}년`));
-				});
-
-				// 입실 날짜 초기화 (오늘)
-				DOM.dateInputs.checkIn.year.val(currentYear);
-				updateMonthOptions(DOM.dateInputs.checkIn, currentYear, true); 
-				DOM.dateInputs.checkIn.month.val(today.getMonth() + 1);
-				updateDayOptions(DOM.dateInputs.checkIn, today.getDate());
-
-				// 퇴실 날짜 초기화 (내일)
-				const tomorrow = new Date(today);
-				tomorrow.setDate(today.getDate() + 1);
-				DOM.dateInputs.checkOut.year.val(tomorrow.getFullYear());
-				updateMonthOptions(DOM.dateInputs.checkOut, tomorrow.getFullYear(), false); 
-				DOM.dateInputs.checkOut.month.val(tomorrow.getMonth() + 1);
-				updateDayOptions(DOM.dateInputs.checkOut, tomorrow.getDate());
-				
-				// 초기 시간 설정
-				initializeTimeSelects(); 
-			}
-
-			function initializeTimeSelects() {
-				// 입실 시간 옵션 설정
-				DOM.dateInputs.checkIn.hour.empty();
-				for (let i = 10; i <= 20; i++) {
-					const option = $("<option>").val(i).text(`${i}:00`);
-					if (i >= CONFIG.TIME.CHECK_IN.LATE_CHECK_IN_HOUR) {
-						option.addClass("time-notice").text(`${i}:00 (늦은 입실)`);
-					}
-					DOM.dateInputs.checkIn.hour.append(option);
-				}
-
-				// 퇴실 시간 옵션 설정
-				DOM.dateInputs.checkOut.hour.empty();
-				for (let i = 10; i <= 20; i++) {
-					const option = $("<option>").val(i).text(`${i}:00`);
-					if (i <= CONFIG.TIME.CHECK_OUT.EARLY_CHECK_OUT_HOUR) {
-						option.addClass("time-notice").text(`${i}:00 (빠른 퇴실)`);
-					}
-					DOM.dateInputs.checkOut.hour.append(option);
-					}
-
-					// 기본값 설정
-				DOM.dateInputs.checkIn.hour.val(CONFIG.TIME.CHECK_IN.DEFAULT_HOUR);
-				DOM.dateInputs.checkOut.hour.val(CONFIG.TIME.CHECK_OUT.DEFAULT_HOUR);
-			}
-
-			function initializeCalculator() {
-				// 시간 선택 초기화
-				initializeTimeSelects();
-				// 날짜 선택 초기화
-				initializeDateSelects();
-				// 이벤트 리스너 설정
-				setupEventListeners();
-				// 초기 스타일 적용
-				applyInitialStyles();
-			}
-
-			function applyInitialStyles() {
-				const roomType = DOM.room.type.val();
-				let roomClass;
-				switch(roomType) {
-					case 'f': roomClass = 'family'; break;
-					case 'p': roomClass = 'premier'; break;
-					case 'd': roomClass = 'deluxe'; break;
-					case 's': roomClass = 'standard'; break;
-				}
-
-				// 객실 타입 스타일 적용
-				DOM.room.type.removeClass("family premier deluxe standard").addClass(roomClass);
-				DOM.room.catCount.removeClass("family premier deluxe standard").addClass(roomClass);
-				DOM.price.room.removeClass("family premier deluxe standard").addClass(roomClass);
-
-				// 객실 이름 업데이트
-				const roomName = DOM.room.type.find("option:selected").text();
-				$(".room-type-text").text(roomName).removeClass("family premier deluxe standard").addClass('room-type-text ' + roomClass);
-
-				// 시간 스타일 적용
-				// UIManager.updateTimeStyle();
-			}
-
-			function calculateAndUpdatePrice() {
-				try {
-					// 기본 객실 요금 계산
-					const roomType = DOM.room.type.val();
-					const catCount = parseInt(DOM.room.catCount.val());
-					let basePrice = 0;
-					let maxCats = 1;
-					let roomClass = '';
-					
-					switch(roomType) {
-						case 'f':
-							basePrice = 50000;
-							maxCats = 2;
-							roomClass = 'family';
-							break;
-						case 'p':
-							basePrice = 30000;
-							maxCats = 1;
-							roomClass = 'premier';
-							break;
-						case 'd':
-							basePrice = 28000;
-							maxCats = 1;
-							roomClass = 'deluxe';
-							break;
-						case 's':
-							basePrice = 25000;
-							maxCats = 1;
-							roomClass = 'standard';
-							break;
-					}
-					
-					// 추가 고양이 요금 계산
-					const additionalCats = Math.max(0, catCount - maxCats);
-					const additionalFee = additionalCats * 5000;
-					const totalBasePrice = basePrice + additionalFee;
-					
-					// 기본 요금과 추가 요금 표시
-					let priceText = `<span class="main-price">${totalBasePrice.toLocaleString()}원</span>`;
-					
-					// 기준 묘수 정보
-					const baseInfo = maxCats === 2 ? "기준 2마리" : "기준 1마리";
-					
-					if (additionalCats > 0) {
-						// 추가 고양이 수에 따른 요금 표시
-						priceText += `<span class="price-notice">${basePrice.toLocaleString()}원, ${baseInfo}, +${additionalCats}마리 ${additionalFee.toLocaleString()}원</span>`;
-					} else {
-						// 기준 묘수만 표시
-						priceText += `<span class="price-notice">${basePrice.toLocaleString()}원, ${baseInfo}</span>`;
-					}
-					
-					DOM.price.room.html(priceText);
-					
-					// 객실 타입에 따른 스타일 적용
-					DOM.price.room.removeClass("family premier deluxe standard").addClass(roomClass);
-
-					// 날짜 계산
-					const checkInDate = new Date(
-						parseInt(DOM.dateInputs.checkIn.year.val()),
-						parseInt(DOM.dateInputs.checkIn.month.val()) - 1,
-						parseInt(DOM.dateInputs.checkIn.day.val())
-					);
-					
-					const checkOutDate = new Date(
-						parseInt(DOM.dateInputs.checkOut.year.val()),
-						parseInt(DOM.dateInputs.checkOut.month.val()) - 1,
-						parseInt(DOM.dateInputs.checkOut.day.val())
-					);
-
-					// 시간 계산
-					const checkInHour = parseInt(DOM.dateInputs.checkIn.hour.val());
-					const checkOutHour = parseInt(DOM.dateInputs.checkOut.hour.val());
-
-						// 이용 일수 계산
-					let days = Math.ceil((checkOutDate - checkInDate) / (1000 * 60 * 60 * 24)) + 1;
-					let timeNotice = [];
-					
-					if (checkInHour >= 18) {
-						days -= 0.5;
-						timeNotice.push("늦은 입실(-0.5일)");
-					}
-					if (checkOutHour <= 12) {
-						days -= 0.5;
-						timeNotice.push("빠른 퇴실(-0.5일)");
-					}
-					
-					days = Math.max(1, days);
-					let daysText = `<span class="main-price">${days}일</span>`;
-					if (timeNotice.length > 0) {
-						daysText += `<span class="price-notice">${timeNotice.join(" | ")}</span>`;
-					}
-					DOM.stay.duration.html(daysText);
-
-					// 할인 전 총액 계산
-					const subtotal = Math.floor(totalBasePrice * days);
-
-					// 할인 계산
-					let discountRate = 0;
-					if (days >= 30) {
-						discountRate = 30;
-					} else if (days >= 20) {
-						discountRate = 20;
-					} else if (days >= 10) {
-						discountRate = 10;
-					}
-
-					// 할인이 있을 때만 관련 행들 표시
-					const discountRows = $('.subtotal-row, .discount-row');
-					if (discountRate > 0) {
-						discountRows.show();
-						DOM.price.subtotal.text(subtotal.toLocaleString() + "원");
-						DOM.price.discount.rate.text(discountRate + "%");
-						const discountAmount = Math.floor(subtotal * (discountRate / 100));
-						DOM.price.discount.amount.text(discountAmount.toLocaleString() + "원");
-						// 최종 금액 계산
-						const final = subtotal - discountAmount;
-						DOM.price.final.html(`<span class="main-price">${final.toLocaleString()}원</span>`); // .text()에서 .html()로 변경하고 span 태그 추가
-					} else {
-						discountRows.hide();
-						// 할인이 없을 때는 subtotal이 최종 금액
-						DOM.price.final.html(`<span class="main-price">${subtotal.toLocaleString()}원</span>`); // .text()에서 .html()로 변경하고 span 태그 추가
-					}
-					
-					// UI 업데이트
-					// UIManager.updateTimeStyle(); // 이 호출도 이전 단계에서 삭제되었어야 함.
-					// UIManager.animatePriceChange(DOM.price.final);
-				} catch (error) {
-					console.error("가격 계산 중 오류 발생:", error);
-					DOM.price.room.html('<span class="main-price">0원</span><span class="price-notice">0원, 기준 1마리</span>');
-					DOM.stay.duration.text("1일");
-					DOM.price.subtotal.text("0원");
-					DOM.price.discount.rate.text("0%");
-					DOM.price.discount.amount.text("0원");
-					DOM.price.final.text("0원");
-				}
-			}
-
-			document.addEventListener('DOMContentLoaded', function() {
-				// --- 기존 $(document).ready() 코드 시작 ---
-				// if (window.jQuery) { $(document).ready(function() { ... }); }
-				// --- 기존 $(document).ready() 코드 끝 ---
-
-				const encyclopediaToggle = document.getElementById('encyclopediaToggleTrigger');
-				const encyclopediaLinks = document.getElementById('encyclopediaLinkGroup');
-				const toggleArrow = encyclopediaToggle ? encyclopediaToggle.querySelector('.toggle-arrow') : null;
-
-				if (encyclopediaToggle && encyclopediaLinks && toggleArrow) {
-					encyclopediaToggle.addEventListener('click', function() {
-						encyclopediaLinks.classList.toggle('show');
-						toggleArrow.classList.toggle('open');
-						// Font Awesome 아이콘 클래스 직접 변경 (회전은 CSS로 처리하므로 open 클래스만 토글)
-						if (encyclopediaLinks.classList.contains('show')) {
-							toggleArrow.classList.remove('fa-chevron-down');
-							toggleArrow.classList.add('fa-chevron-up');
-						} else {
-							toggleArrow.classList.remove('fa-chevron-up');
-							toggleArrow.classList.add('fa-chevron-down');
-						}
-					});
-				}
-			});
-
-			function copyResult() {
-				const roomTypeText = DOM.room.type.find("option:selected").text();
-				const catCount = DOM.room.catCount.val();
-				const checkInDate = `${DOM.dateInputs.checkIn.year.val()}년 ${DOM.dateInputs.checkIn.month.val()}월 ${DOM.dateInputs.checkIn.day.val()}일 ${DOM.dateInputs.checkIn.hour.val()}시`;
-				const checkOutDate = `${DOM.dateInputs.checkOut.year.val()}년 ${DOM.dateInputs.checkOut.month.val()}월 ${DOM.dateInputs.checkOut.day.val()}일 ${DOM.dateInputs.checkOut.hour.val()}시`;
-				const roomPrice = DOM.price.room.text();
-				const stayDuration = DOM.stay.duration.text();
-				const discountRate = DOM.price.discount.rate.text();
-				const finalPrice = DOM.price.final.text();
-
-				// 늦은 입실/빠른 퇴실 여부 확인
-				const timeNotice = [];
-				if(parseInt(DOM.dateInputs.checkIn.hour.val()) >= CONFIG.TIME.CHECK_IN.LATE_CHECK_IN_HOUR) {
-					timeNotice.push("늦은 입실(-0.5일)");
-				}
-				if(parseInt(DOM.dateInputs.checkOut.hour.val()) <= CONFIG.TIME.CHECK_OUT.EARLY_CHECK_OUT_HOUR) {
-					timeNotice.push("빠른 퇴실(-0.5일)");
-				}
-				const timeNoticeText = timeNotice.length > 0 ? `\n⚠️ ${timeNotice.join(" | ")}` : "";
-
-				// 할인 정보 텍스트 (할인이 있을 때만 포함)
-				let discountText = "";
-				if (discountRate !== "0%") {
-					const subtotalPrice = DOM.price.subtotal.text();
-					const discountAmount = DOM.price.discount.amount.text();
-					discountText = `\n📊 할인 전 금액: ${subtotalPrice}\n💝 할인율: ${discountRate}\n💫 할인금액: ${discountAmount}`;
-				}
-
-				const resultText = 
-					`[묘랑묘랑 안양본점 숙박 예약 정보]\n\n` +
-					`🏠 객실: ${roomTypeText}\n` +
-					`🐱 고양이: ${catCount}마리\n` +
-					`💵 객실 요금: ${roomPrice}\n` +
-					`📅 체크인: ${checkInDate}\n` +
-					`📅 체크아웃: ${checkOutDate}\n` +
-					`⏰ 이용일수: ${stayDuration}${timeNoticeText}${discountText}\n` +
-					`💰 최종 금액: ${finalPrice}`;
-
-				navigator.clipboard.writeText(resultText).then(() => {
-					const feedback = $(".copy-feedback");
-					feedback.addClass("show");
-					setTimeout(() => feedback.removeClass("show"), 2000);
-				});
-			}
-
-			function saveAsImage() {
-				// 두 테이블을 감싸는 임시 div 생성
-				const wrapper = document.createElement('div');
-				wrapper.style.background = 'white';
-				wrapper.style.padding = '20px';
-				wrapper.style.borderRadius = '12px';
-				
-				// 기존 테이블들을 복제
-				const priceOutput = document.querySelector('.tblPriceOutput').cloneNode(true);
-				const finalPrice = document.querySelector('.tblFinalPrice').cloneNode(true);
-				
-				// 테이블 간격 조정
-				priceOutput.style.marginBottom = '20px';
-				
-				// wrapper에 테이블들 추가
-				wrapper.appendChild(priceOutput);
-				wrapper.appendChild(finalPrice);
-				document.body.appendChild(wrapper);
-				
-				// 이미지 생성
-				html2canvas(wrapper).then(canvas => {
-					const link = document.createElement('a');
-					link.download = '묘랑묘랑_예약정보.png';
-					link.href = canvas.toDataURL();
-					link.click();
-					
-					// 임시 wrapper 제거
-					document.body.removeChild(wrapper);
-				});
-			}
-		</script>
 	</head>
 	<body>
-		<div class="container">
-			<h1 class="main-title ibmB">묘랑묘랑 안양본점</h1>
-			
-			<!-- 첫 번째 구분선 -->
-			<div class="section-divider"></div>
-			
+		<button class="floating-menu-toggle-button" id="floatingMenuButton" aria-label="추가 기능 메뉴 열기/닫기" aria-expanded="false" aria-controls="floatingMenu">
+			<i class="fas fa-bars"></i>
+		</button>
+		<div class="floating-menu-container" id="floatingMenu">
 			<!-- 안내 버튼 섹션 -->
 			<div class="info-buttons">
 				<!-- 1. 예약 신청서 (가장 중요한 액션) -->
-				<button onclick="window.open('https://forms.gle/nqxdDJaTdo8t1Hzw9', '_blank')" class="info-button reservation ibmR">
+				<button id="fmBtnReservation" class="info-button reservation ibmR" aria-label="예약 신청서 새 창으로 열기">
 					<i class="fas fa-calendar-check"></i>
 					예약 신청서
 				</button>
 				
 				<!-- 2. 객실 정보 -->
-				<button onclick="window.open('https://m.blog.naver.com/PostView.naver?blogId=cathotelanyang&logNo=223140170019&navType=by', '_blank')" class="info-button room-info ibmR">
+				<button id="fmBtnRoomInfo" class="info-button room-info ibmR" aria-label="객실 정보 보기 새 창으로 열기">
 					<i class="fas fa-home"></i>
 					객실 정보 보기
 				</button>
 				
 				<!-- 3. 첫 방문 필독 -->
-				<button onclick="window.open('https://blog.naver.com/cathotelanyang/223835463336', '_blank')" class="info-button first-visit ibmR">
+				<button id="fmBtnFirstVisit" class="info-button first-visit ibmR" aria-label="첫 방문 고객 필독 사항 새 창으로 열기">
 					<i class="fas fa-book-open"></i>
 					첫 방문 고객 필독
 				</button>
 				
 				<!-- 4. 자주 묻는 질문 -->
-				<button onclick="window.open('https://blog.naver.com/cathotelanyang/223191372339', '_blank')" class="info-button faq ibmR">
+				<button id="fmBtnFaq" class="info-button faq ibmR" aria-label="자주 묻는 질문 새 창으로 열기">
 					<i class="fas fa-question-circle"></i>
 					자주 묻는 질문
 				</button>
 				
 				<!-- 5. 오시는 길 -->
-				<button onclick="window.open('http://naver.me/GdJKXmqt', '_blank')" class="info-button location ibmR">
+				<button id="fmBtnLocation" class="info-button location ibmR" aria-label="오시는 길 안내 새 창으로 열기">
 					<i class="fas fa-map-marker-alt"></i>
 					오시는 길
 				</button>
 			</div>
 
-			<!-- 고양이 백과사전 섹션 시작 -->
-			<div class="cat-encyclopedia-section">
-				<div class="encyclopedia-toggle" id="encyclopediaToggleTrigger">
-					<i class="fas fa-book"></i> <span class="actual-title-text">고양이 백과사전</span>
-					<span class="toggle-arrow fas fa-chevron-down"></span>
+			<div class="section-divider" style="margin: 15px 0;"></div> <!-- 구분선 추가 -->
+
+			<!-- 고양이 백과사전 섹션 (floating-toggle-section 클래스 사용) -->
+			<div class="floating-toggle-section">
+				<div class="floating-toggle-trigger" id="encyclopediaToggleTrigger" role="button" aria-expanded="false" aria-controls="encyclopediaLinkGroup" aria-label="고양이 백과사전 펼치기/접기">
+					<span><i class="icon-cat-leaf"></i> <span class="actual-title-text">고양이 백과사전</span></span>
+					<span class="arrow fas fa-chevron-down"></span>
 				</div>
-				<div class="encyclopedia-links" id="encyclopediaLinkGroup">
-					<a href="https://cathotelanyang.github.io/calculator/catVaccination.html" target="_blank" class="encyclopedia-link-button">고양이 백신 정보</a>
-					<a href="https://cathotelanyang.github.io/calculator/catPoo.html" target="_blank" class="encyclopedia-link-button">고양이 응가 정보</a>
-					<a href="https://cathotelanyang.github.io/calculator/catVomit.html" target="_blank" class="encyclopedia-link-button">고양이 구토 정보</a>
+				<div class="floating-link-group" id="encyclopediaLinkGroup">
+					<ul>
+						<li><a href="https://cathotelanyang.github.io/calculator/catVaccination.html" target="_blank">고양이 백신 정보</a></li>
+						<li><a href="https://cathotelanyang.github.io/calculator/catPoo.html" target="_blank">고양이 응가 정보</a></li>
+						<li><a href="https://cathotelanyang.github.io/calculator/catVomit.html" target="_blank">고양이 구토 정보</a></li>
+					</ul>
 				</div>
 			</div>
-			<!-- 고양이 백과사전 섹션 끝 -->
-			
-			<!-- 두 번째 구분선 -->
-			<div class="section-divider"></div>
+		</div>
+
+		<div class="container">
+			<h1 class="main-title ibmB">묘랑묘랑 안양본점</h1>
+			<p id="currentDateDisplay" class="current-date-display ibmR"></p> 
 			
 			<h3 class="ibmB">숙박요금 계산기</h3>
 			<table class="ibmR tblPriceInput">
@@ -2826,8 +1736,8 @@
 					<th>입실</th>
 					<td>
 						<div class="date-container">
-							<div class="date-inputs">
-								<select id="checkInYear" class="ibmR year-select"></select>
+							<select id="checkInYear" class="ibmR year-select"></select>
+							<div class="month-day-wrapper"> 
 								<select id="checkInMonth" class="ibmR month-select"></select>
 								<select id="checkInDay" class="ibmR day-select"></select>
 							</div>
@@ -2839,8 +1749,8 @@
 					<th>퇴실</th>
 					<td>
 						<div class="date-container">
-							<div class="date-inputs">
-								<select id="checkOutYear" class="ibmR year-select"></select>
+							<select id="checkOutYear" class="ibmR year-select"></select>
+							<div class="month-day-wrapper">
 								<select id="checkOutMonth" class="ibmR month-select"></select>
 								<select id="checkOutDay" class="ibmR day-select"></select>
 							</div>
@@ -2884,15 +1794,19 @@
 			
 			<!-- 하단 버튼 섹션 -->
 			<div class="share-buttons">
-				<button onclick="copyResult()" class="share-button copy ibmR">
+				<button id="btnCopyResult" class="share-button copy ibmR" aria-label="계산 결과 복사하기">
 					<i class="fas fa-copy"></i>
 					계산 결과 복사하기
 				</button>
-				<button onclick="saveAsImage()" class="share-button image ibmR">
+				<button id="btnSaveAsImage" class="share-button image ibmR" aria-label="계산 결과 이미지로 저장하기">
 					<i class="fas fa-image"></i>
 					이미지로 저장하기
 				</button>
-				<button onclick="window.open('https://forms.gle/nqxdDJaTdo8t1Hzw9', '_blank')" class="share-button reservation ibmR">
+				<button id="btnWeeklyWeather" class="share-button weather-link ibmR" aria-label="주간 날씨 보기 (새 창)">
+					<i class="fas fa-cloud-sun"></i> 
+					주간 날씨 보기
+				</button>
+				<button id="btnReservationBottom" class="share-button reservation ibmR" aria-label="예약 신청서 새 창으로 열기">
 					<i class="fas fa-calendar-check"></i>
 					예약 신청서
 				</button>
@@ -2903,65 +1817,59 @@
 			
 			<h3 class="ibmB">객실 타입별 기본 요금표</h3>
 			<div class="price-section">
-				<div class="room-card">
-					<div class="room-header family">
-						<p class="tblPriceThType">패밀리</p>
-						<p class="room-price">50,000원</p>
-						<p class="room-base">2묘 기준</p>
+				<div class="room-card family" data-room-type="f">
+					<div class="room-header family"> <!-- CSS와 일관성을 위해 card-header -> room-header로 변경 및 초기 클래스 설정 -->
+						<h4 class="tblPriceThType"></h4> <!-- 스크립트에서 채워짐 -->
+						<p class="room-price"></p> <!-- 스크립트에서 채워짐 -->
+						<p class="room-base"></p> <!-- 스크립트에서 채워짐 -->
 					</div>
 					<div class="room-features">
 						<ul class="feature-list">
-							<li>가장 넓은 공간</li>
-							<li>대형 창문</li>
-							<li><span class="recommend-text">다묘 가족 추천</span></li>
+							<!-- 스크립트에서 동적으로 채워짐 -->
 						</ul>
 					</div>
 				</div>
-				<div class="room-card">
+				<div class="room-card premier" data-room-type="p">
 					<div class="room-header premier">
-						<p class="tblPriceThType">프리미어</p>
-						<p class="room-price">30,000원</p>
-						<p class="room-base">1묘 기준</p>
+						<h4 class="tblPriceThType"></h4>
+						<p class="room-price"></p>
+						<p class="room-base"></p>
 					</div>
 					<div class="room-features">
 						<ul class="feature-list">
-							<li>큰 창문</li>
-							<li>수직 공간 2곳</li>
-							<li><span class="recommend-text">활동적인 냥이 추천</span></li>
+							<!-- 스크립트에서 동적으로 채워짐 -->
 						</ul>
 					</div>
 				</div>
-				<div class="room-card">
+				<div class="room-card deluxe" data-room-type="d">
 					<div class="room-header deluxe">
-						<p class="tblPriceThType">디럭스</p>
-						<p class="room-price">28,000원</p>
-						<p class="room-base">1묘 기준</p>
+						<h4 class="tblPriceThType"></h4>
+						<p class="room-price"></p>
+						<p class="room-base"></p>
 					</div>
 					<div class="room-features">
 						<ul class="feature-list">
-							<li>중간 창문</li>
-							<li>수직 공간 1곳</li>
-							<li><span class="recommend-text">일반적인 숙박 추천</span></li>
+							<!-- 스크립트에서 동적으로 채워짐 -->
 						</ul>
 					</div>
 				</div>
-				<div class="room-card">
+				<div class="room-card standard" data-room-type="s">
 					<div class="room-header standard">
-						<p class="tblPriceThType">스탠다드</p>
-						<p class="room-price">25,000원</p>
-						<p class="room-base">1묘 기준</p>
+						<h4 class="tblPriceThType"></h4>
+						<p class="room-price"></p>
+						<p class="room-base"></p>
 					</div>
 					<div class="room-features">
 						<ul class="feature-list">
-							<li>창문 없는 조용한 공간</li>
-							<li>안정적인 환경</li>
-							<li><span class="recommend-text">예민/소심 냥이 추천</span></li>
+							<!-- 스크립트에서 동적으로 채워짐 -->
 						</ul>
 					</div>
 				</div>
-				<p class="price-notice">* 추가 고양이 1마리당 5,000원의 요금이 추가됩니다.</p>
 			</div>
-		</div>
+			<p class="price-notice">※ 추가 고양이 1마리당 1박 5,000원 (모든 객실 동일)</p>
+		</div> <!-- .container 닫는 태그 -->
 		<p class="credit-info ibmR">© 2023 묘랑묘랑 안양본점</p>
+		<div class="copy-feedback">계산 결과가 복사되었습니다!</div>
+		<div class="save-image-feedback">이미지가 저장되었습니다!</div>
 	</body>
 </html> 
